@@ -1052,7 +1052,9 @@ function PressAutopsy({ team, matchLabel, metrics = {}, analysisDepth, pipelineT
 // Metrics Summary (generic fallback)
 // ---------------------------------------------------------------------------
 
-function MetricsSummary({ template, team, metrics = {}, analysisDepth, pipelineText, autoStory }: {
+function MetricsSummary({ template, team, matchLabel, metrics = {}, analysisDepth, pipelineText, autoStory }: {
+  template: string; team: string; matchLabel?: string; metrics: ApiMetrics; analysisDepth: string; pipelineText: string; autoStory?: CreatorStory | null
+}) {
   template: string; team: string; metrics: ApiMetrics; analysisDepth: string; pipelineText: string; autoStory?: CreatorStory | null
 }) {
   const teamsData = (metrics as any).teams_data_flow ?? []
