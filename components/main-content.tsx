@@ -10,57 +10,50 @@ import type { SharedState, SetSharedState } from "@/app/page"
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000"
 
 const MATCH_INDEX: Record<string, { label: string; id: number }[]> = {
-  "Group Stage": [
-    // Group A
+  // ── FIFA World Cup 2022 ──────────────────────────────────────────
+  "WC2022 · Group Stage": [
     { label: "Qatar vs Ecuador", id: 3857286 },
     { label: "Senegal vs Netherlands", id: 3857285 },
     { label: "Qatar vs Senegal", id: 3857301 },
     { label: "Netherlands vs Ecuador", id: 3857274 },
     { label: "Netherlands vs Qatar", id: 3857294 },
     { label: "Ecuador vs Senegal", id: 3857267 },
-    // Group B
     { label: "England vs Iran", id: 3857271 },
     { label: "USA vs Wales", id: 3857282 },
     { label: "Wales vs Iran", id: 3857273 },
     { label: "England vs USA", id: 3857272 },
     { label: "Wales vs England", id: 3857261 },
     { label: "Iran vs USA", id: 3857278 },
-    // Group C
     { label: "Argentina vs Saudi Arabia", id: 3857300 },
     { label: "Mexico vs Poland", id: 3857265 },
     { label: "Poland vs Saudi Arabia", id: 3857297 },
     { label: "Argentina vs Mexico", id: 3857289 },
     { label: "Poland vs Argentina", id: 3857264 },
     { label: "Saudi Arabia vs Mexico", id: 3857260 },
-    // Group D
     { label: "Denmark vs Tunisia", id: 3857254 },
     { label: "France vs Australia", id: 3857279 },
     { label: "Tunisia vs Australia", id: 3857288 },
     { label: "France vs Denmark", id: 3857266 },
     { label: "Australia vs Denmark", id: 3857257 },
     { label: "Tunisia vs France", id: 3857275 },
-    // Group E
     { label: "Germany vs Japan", id: 3857284 },
     { label: "Spain vs Costa Rica", id: 3857291 },
     { label: "Japan vs Costa Rica", id: 3857295 },
     { label: "Spain vs Germany", id: 3857263 },
     { label: "Japan vs Spain", id: 3857255 },
     { label: "Costa Rica vs Germany", id: 3857292 },
-    // Group F
     { label: "Morocco vs Croatia", id: 3857277 },
     { label: "Belgium vs Canada", id: 3857268 },
     { label: "Belgium vs Morocco", id: 3857283 },
     { label: "Croatia vs Canada", id: 3857281 },
     { label: "Croatia vs Belgium", id: 3857296 },
     { label: "Canada vs Morocco", id: 3857276 },
-    // Group G
     { label: "Brazil vs Serbia", id: 3857258 },
     { label: "Switzerland vs Cameroon", id: 3857290 },
     { label: "Cameroon vs Serbia", id: 3857259 },
     { label: "Brazil vs Switzerland", id: 3857269 },
     { label: "Cameroon vs Brazil", id: 3857280 },
     { label: "Serbia vs Switzerland", id: 3857256 },
-    // Group H
     { label: "Portugal vs Ghana", id: 3857298 },
     { label: "Uruguay vs South Korea", id: 3857287 },
     { label: "South Korea vs Ghana", id: 3857299 },
@@ -68,7 +61,7 @@ const MATCH_INDEX: Record<string, { label: string; id: number }[]> = {
     { label: "South Korea vs Portugal", id: 3857262 },
     { label: "Ghana vs Uruguay", id: 3857293 },
   ],
-  "Round of 16": [
+  "WC2022 · Round of 16": [
     { label: "Argentina vs Australia", id: 3869151 },
     { label: "Brazil vs South Korea", id: 3869253 },
     { label: "England vs Senegal", id: 3869118 },
@@ -78,21 +71,127 @@ const MATCH_INDEX: Record<string, { label: string; id: number }[]> = {
     { label: "Netherlands vs USA", id: 3869117 },
     { label: "Portugal vs Switzerland", id: 3869254 },
   ],
-  "Quarter-finals": [
+  "WC2022 · Quarter-finals": [
     { label: "Croatia vs Brazil", id: 3869420 },
     { label: "England vs France", id: 3869354 },
     { label: "Morocco vs Portugal", id: 3869486 },
     { label: "Netherlands vs Argentina", id: 3869321 },
   ],
-  "Semi-finals": [
+  "WC2022 · Semi-finals": [
     { label: "Argentina vs Croatia", id: 3869519 },
     { label: "France vs Morocco", id: 3869552 },
   ],
-  "3rd Place": [
+  "WC2022 · 3rd Place": [
     { label: "Croatia vs Morocco", id: 3869684 },
   ],
-  "Final": [
+  "WC2022 · Final": [
     { label: "Argentina vs France", id: 3869685 },
+  ],
+
+  // ── UEFA Euro 2024 ───────────────────────────────────────────────
+  "EURO2024 · Group Stage": [
+    { label: "Germany vs Scotland", id: 3930158 },
+    { label: "Hungary vs Switzerland", id: 3930159 },
+    { label: "Spain vs Croatia", id: 3930160 },
+    { label: "Italy vs Albania", id: 3930161 },
+    { label: "Slovenia vs Denmark", id: 3930162 },
+    { label: "Serbia vs England", id: 3930163 },
+    { label: "Belgium vs Slovakia", id: 3930164 },
+    { label: "Austria vs France", id: 3930165 },
+    { label: "Portugal vs Czech Republic", id: 3930166 },
+    { label: "Croatia vs Albania", id: 3930167 },
+    { label: "Germany vs Hungary", id: 3930168 },
+    { label: "Scotland vs Switzerland", id: 3930169 },
+    { label: "Slovenia vs Serbia", id: 3930170 },
+    { label: "Denmark vs England", id: 3930171 },
+    { label: "Spain vs Italy", id: 3930172 },
+    { label: "Netherlands vs France", id: 3930173 },
+    { label: "Turkey vs Portugal", id: 3930174 },
+    { label: "Belgium vs Romania", id: 3930175 },
+    { label: "Switzerland vs Germany", id: 3930176 },
+    { label: "Scotland vs Hungary", id: 3930177 },
+    { label: "Croatia vs Italy", id: 3930178 },
+    { label: "Albania vs Spain", id: 3930179 },
+    { label: "Netherlands vs Austria", id: 3930180 },
+    { label: "England vs Slovenia", id: 3930181 },
+    { label: "Denmark vs Serbia", id: 3930182 },
+    { label: "Slovakia vs Romania", id: 3930183 },
+    { label: "Czech Republic vs Turkey", id: 3930184 },
+    { label: "Romania vs Ukraine", id: 3938638 },
+    { label: "Turkey vs Georgia", id: 3938639 },
+    { label: "Slovakia vs Ukraine", id: 3938640 },
+    { label: "Poland vs Austria", id: 3938641 },
+    { label: "Georgia vs Czech Republic", id: 3938642 },
+    { label: "France vs Poland", id: 3938643 },
+    { label: "Georgia vs Portugal", id: 3938644 },
+    { label: "Ukraine vs Belgium", id: 3938645 },
+  ],
+  "EURO2024 · Round of 16": [
+    { label: "Switzerland vs Italy", id: 3940878 },
+    { label: "Germany vs Denmark", id: 3940983 },
+    { label: "England vs Slovakia", id: 3941017 },
+    { label: "Spain vs Georgia", id: 3941018 },
+    { label: "France vs Belgium", id: 3941019 },
+    { label: "Portugal vs Slovenia", id: 3941020 },
+    { label: "Romania vs Netherlands", id: 3941021 },
+    { label: "Austria vs Turkey", id: 3941022 },
+  ],
+  "EURO2024 · Quarter-finals": [
+    { label: "Spain vs Germany", id: 3942226 },
+    { label: "England vs Switzerland", id: 3942227 },
+    { label: "Portugal vs France", id: 3942349 },
+    { label: "Netherlands vs Turkey", id: 3942382 },
+  ],
+  "EURO2024 · Semi-finals": [
+    { label: "Spain vs France", id: 3942752 },
+    { label: "Netherlands vs England", id: 3942819 },
+  ],
+  "EURO2024 · Final": [
+    { label: "Spain vs England", id: 3943043 },
+  ],
+
+  // ── Copa América 2024 ────────────────────────────────────────────
+  "COPA2024 · Group Stage": [
+    { label: "Argentina vs Canada", id: 3939969 },
+    { label: "Peru vs Chile", id: 3939970 },
+    { label: "Mexico vs Jamaica", id: 3939971 },
+    { label: "Ecuador vs Venezuela", id: 3939972 },
+    { label: "Uruguay vs Panama", id: 3939973 },
+    { label: "United States vs Bolivia", id: 3939974 },
+    { label: "Colombia vs Paraguay", id: 3939975 },
+    { label: "Brazil vs Costa Rica", id: 3939976 },
+    { label: "Venezuela vs Mexico", id: 3939977 },
+    { label: "Peru vs Canada", id: 3939978 },
+    { label: "Paraguay vs Brazil", id: 3939979 },
+    { label: "Ecuador vs Jamaica", id: 3939980 },
+    { label: "Panama vs United States", id: 3939981 },
+    { label: "Uruguay vs Bolivia", id: 3939982 },
+    { label: "Colombia vs Costa Rica", id: 3939983 },
+    { label: "Chile vs Argentina", id: 3939984 },
+    { label: "Canada vs Chile", id: 3939985 },
+    { label: "Argentina vs Peru", id: 3939986 },
+    { label: "Jamaica vs Venezuela", id: 3939987 },
+    { label: "Mexico vs Ecuador", id: 3939988 },
+    { label: "Bolivia vs Panama", id: 3939989 },
+    { label: "United States vs Uruguay", id: 3939990 },
+    { label: "Brazil vs Colombia", id: 3939991 },
+    { label: "Costa Rica vs Paraguay", id: 3939992 },
+  ],
+  "COPA2024 · Quarter-finals": [
+    { label: "Argentina vs Ecuador", id: 3942228 },
+    { label: "Venezuela vs Canada", id: 3942229 },
+    { label: "Uruguay vs Brazil", id: 3942415 },
+    { label: "Colombia vs Panama", id: 3942416 },
+  ],
+  "COPA2024 · Semi-finals": [
+    { label: "Argentina vs Canada", id: 3942785 },
+    { label: "Uruguay vs Colombia", id: 3942852 },
+  ],
+  "COPA2024 · 3rd Place": [
+    { label: "Canada vs Uruguay", id: 3943076 },
+  ],
+  "COPA2024 · Final": [
+    { label: "Argentina vs Colombia", id: 3943077 },
   ],
 }
 
