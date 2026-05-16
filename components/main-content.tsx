@@ -338,6 +338,7 @@ interface MainContentProps {
 export default function MainContent({ sharedState, setSharedState }: MainContentProps) {
   const { selectedTemplate, analysisDepth } = sharedState
 
+  const [selectedCompetition, setSelectedCompetition] = useState("World Cup 2022")
   const [selectedStage, setSelectedStage] = useState("WC2022 · Final")
   const [selectedMatch, setSelectedMatch] = useState(MATCH_INDEX["WC2022 · Final"][0])
   const [dropdownOpen,  setDropdownOpen]  = useState(false)
