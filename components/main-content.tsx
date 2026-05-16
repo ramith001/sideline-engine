@@ -391,21 +391,33 @@ export default function MainContent({ sharedState, setSharedState }: MainContent
             {analysisDepth}
           </span>
           <MatchSelector
-            selectedStage={selectedStage} selectedMatch={selectedMatch} dropdownOpen={dropdownOpen}
-            onStageChange={(stage) => {
-              setSelectedStage(stage)
-              const first = MATCH_INDEX[stage][0]
-              setSelectedMatch(first)
-              setSharedState(prev => ({ ...prev, selectedMatchId: first.id }))
-              setApiData(null); setError(null)
-            }}
-            onMatchChange={(match) => {
-              setSelectedMatch(match)
-              setSharedState(prev => ({ ...prev, selectedMatchId: match.id }))
-              setDropdownOpen(false); setApiData(null); setError(null)
-            }}
-            onToggle={() => setDropdownOpen(v => !v)}
-          />
+  selectedCompetition={selectedCompetition}
+  selectedStage={selectedStage}
+  selectedMatch={selectedMatch}
+  dropdownOpen={dropdownOpen}
+  onCompetitionChange={(comp) => {
+    setSelectedCompetition(comp)
+    const firstStage = COMPETITIONS[comp as keyof typeof COMPETITIONS][0]
+    setSelectedStage(firstStage)
+    const first = MATCH_INDEX[firstStage][0]
+    setSelectedMatch(first)
+    setSharedState(prev => ({ ...prev, selectedMatchId: first.id }))
+    setApiData(null); setError(null)
+  }}
+  onStageChange={(stage) => {
+    setSelectedStage(stage)
+    const first = MATCH_INDEX[stage][0]
+    setSelectedMatch(first)
+    setSharedState(prev => ({ ...prev, selectedMatchId: first.id }))
+    setApiData(null); setError(null)
+  }}
+  onMatchChange={(match) => {
+    setSelectedMatch(match)
+    setSharedState(prev => ({ ...prev, selectedMatchId: match.id }))
+    setDropdownOpen(false); setApiData(null); setError(null)
+  }}
+  onToggle={() => setDropdownOpen(v => !v)}
+/>
           <button onClick={handleRunAnalysis} disabled={isLoading}
             className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
             style={{ backgroundColor: "#ff4d4d" }}>
@@ -463,24 +475,42 @@ export default function MainContent({ sharedState, setSharedState }: MainContent
 // Match Selector
 // ---------------------------------------------------------------------------
 
-function MatchSelector({ selectedStage, selectedMatch, dropdownOpen, onStageChange, onMatchChange, onToggle }: {
-  selectedStage: string; selectedMatch: { label: string; id: number }; dropdownOpen: boolean
-  onStageChange: (s: string) => void; onMatchChange: (m: { label: string; id: number }) => void; onToggle: () => void
+function MatchSelector({ selectedCompetition, selectedStage, selectedMatch, dropdownOpen, onCompetitionChange, onStageChange, onMatchChange, onToggle }: {
+  selectedCompetition: string; selectedStage: string; selectedMatch: { label: string; id: number }; dropdownOpen: boolean
+  onCompetitionChange: (c: string) => void; onStageChange: (s: string) => void; onMatchChange: (m: { label: string; id: number }) => void; onToggle: () => void
 }) {
+  const stages = COMPETITIONS[selectedCompetition as keyof typeof COMPETITIONS] ?? []
   return (
     <div className="relative flex items-center gap-2">
+      {/* Competition selector */}
       <div className="flex gap-1">
-        {STAGES.map(stage => (
-          <button key={stage} onClick={() => onStageChange(stage)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors"
+        {Object.keys(COMPETITIONS).map(comp => (
+          <button key={comp} onClick={() => onCompetitionChange(comp)}
+            className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors"
             style={{
-              backgroundColor: selectedStage === stage ? "rgba(255,77,77,0.15)" : "transparent",
-              color:  selectedStage === stage ? "#ff4d4d" : "#6b7280",
-              border: `1px solid ${selectedStage === stage ? "rgba(255,77,77,0.3)" : "#21262d"}`,
+              backgroundColor: selectedCompetition === comp ? "rgba(255,77,77,0.15)" : "transparent",
+              color: selectedCompetition === comp ? "#ff4d4d" : "#6b7280",
+              border: `1px solid ${selectedCompetition === comp ? "rgba(255,77,77,0.3)" : "#21262d"}`,
             }}>
-            {stage}
+            {comp}
           </button>
         ))}
       </div>
+      {/* Stage selector */}
+      <div className="flex gap-1">
+        {stages.map(stage => (
+          <button key={stage} onClick={() => onStageChange(stage)}
+            className="rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors"
+            style={{
+              backgroundColor: selectedStage === stage ? "rgba(255,77,77,0.15)" : "transparent",
+              color: selectedStage === stage ? "#ff4d4d" : "#6b7280",
+              border: `1px solid ${selectedStage === stage ? "rgba(255,77,77,0.3)" : "#21262d"}`,
+            }}>
+            {stage.split(" · ")[1]}
+          </button>
+        ))}
+      </div>
+      {/* Match selector */}
       <button onClick={onToggle} className="flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5"
         style={{ backgroundColor: "#161b22", borderColor: "#21262d", minWidth: 200 }}>
         <span className="h-2 w-2 shrink-0 rounded-full animate-pulse" style={{ backgroundColor: "#22c55e" }} />
@@ -493,9 +523,9 @@ function MatchSelector({ selectedStage, selectedMatch, dropdownOpen, onStageChan
           style={{ backgroundColor: "#161b22", borderColor: "#21262d" }}>
           <div className="sticky top-0 px-4 py-2 text-[10px] font-bold uppercase tracking-widest"
             style={{ backgroundColor: "#161b22", color: "#ff4d4d", borderBottom: "1px solid #21262d" }}>
-            {selectedStage} — {MATCH_INDEX[selectedStage].length} matches
+            {selectedStage.split(" · ")[1]} — {MATCH_INDEX[selectedStage]?.length ?? 0} matches
           </div>
-          {MATCH_INDEX[selectedStage].map(m => (
+          {(MATCH_INDEX[selectedStage] ?? []).map(m => (
             <button key={m.id} onClick={() => onMatchChange(m)}
               className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors hover:bg-white/5"
               style={{ color: m.id === selectedMatch.id ? "#ff4d4d" : "#e5e7eb" }}>
