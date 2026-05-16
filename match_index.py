@@ -1,5 +1,10 @@
 MATCH_INDEX = {
-    "Group Stage": [
+
+    # =========================================================
+    # FIFA WORLD CUP 2022
+    # =========================================================
+
+    "WC2022 - Group Stage": [
         (3857254, "Denmark vs Tunisia"),
         (3857255, "Japan vs Spain"),
         (3857258, "Brazil vs Serbia"),
@@ -49,7 +54,7 @@ MATCH_INDEX = {
         (3857256, "Serbia vs Switzerland"),
         (3857257, "Australia vs Denmark"),
     ],
-    "Round of 16": [
+    "WC2022 - Round of 16": [
         (3869117, "Netherlands vs USA"),
         (3869118, "England vs Senegal"),
         (3869119, "Argentina vs Australia"),
@@ -59,20 +64,133 @@ MATCH_INDEX = {
         (3869253, "Brazil vs South Korea"),
         (3869254, "Portugal vs Switzerland"),
     ],
-    "Quarter-finals": [
+    "WC2022 - Quarter-finals": [
         (3869321, "Netherlands vs Argentina"),
         (3869354, "England vs France"),
         (3869420, "Croatia vs Brazil"),
         (3869486, "Morocco vs Portugal"),
     ],
-    "Semi-finals": [
+    "WC2022 - Semi-finals": [
         (3869519, "Argentina vs Croatia"),
         (3869552, "France vs Morocco"),
     ],
-    "3rd Place": [
+    "WC2022 - 3rd Place": [
         (3869684, "Croatia vs Morocco"),
     ],
-    "Final": [
+    "WC2022 - Final": [
         (3869685, "Argentina vs France"),
+    ],
+
+    # =========================================================
+    # UEFA EURO 2024
+    # =========================================================
+
+    "EURO2024 - Group Stage": [
+        (3930158, "Germany vs Scotland"),
+        (3930159, "Hungary vs Switzerland"),
+        (3930160, "Spain vs Croatia"),
+        (3930161, "Italy vs Albania"),
+        (3930162, "Slovenia vs Denmark"),
+        (3930163, "Serbia vs England"),
+        (3930164, "Belgium vs Slovakia"),
+        (3930165, "Austria vs France"),
+        (3930166, "Portugal vs Czech Republic"),
+        (3930167, "Croatia vs Albania"),
+        (3930168, "Germany vs Hungary"),
+        (3930169, "Scotland vs Switzerland"),
+        (3930170, "Slovenia vs Serbia"),
+        (3930171, "Denmark vs England"),
+        (3930172, "Spain vs Italy"),
+        (3930173, "Netherlands vs France"),
+        (3930174, "Turkey vs Portugal"),
+        (3930175, "Belgium vs Romania"),
+        (3930176, "Switzerland vs Germany"),
+        (3930177, "Scotland vs Hungary"),
+        (3930178, "Croatia vs Italy"),
+        (3930179, "Albania vs Spain"),
+        (3930180, "Netherlands vs Austria"),
+        (3930181, "England vs Slovenia"),
+        (3930182, "Denmark vs Serbia"),
+        (3930183, "Slovakia vs Romania"),
+        (3930184, "Czech Republic vs Turkey"),
+        (3938637, "Romania vs Ukraine"),
+        (3938638, "Romania vs Ukraine"),
+        (3938639, "Turkey vs Georgia"),
+        (3938640, "Slovakia vs Ukraine"),
+        (3938641, "Poland vs Austria"),
+        (3938642, "Georgia vs Czech Republic"),
+        (3938643, "France vs Poland"),
+        (3938644, "Georgia vs Portugal"),
+        (3938645, "Ukraine vs Belgium"),
+    ],
+    "EURO2024 - Round of 16": [
+        (3940878, "Switzerland vs Italy"),
+        (3940983, "Germany vs Denmark"),
+        (3941017, "England vs Slovakia"),
+        (3941018, "Spain vs Georgia"),
+        (3941019, "France vs Belgium"),
+        (3941020, "Portugal vs Slovenia"),
+        (3941021, "Romania vs Netherlands"),
+        (3941022, "Austria vs Turkey"),
+    ],
+    "EURO2024 - Quarter-finals": [
+        (3942226, "Spain vs Germany"),
+        (3942227, "England vs Switzerland"),
+        (3942349, "Portugal vs France"),
+        (3942382, "Netherlands vs Turkey"),
+    ],
+    "EURO2024 - Semi-finals": [
+        (3942752, "Spain vs France"),
+        (3942819, "Netherlands vs England"),
+    ],
+    "EURO2024 - Final": [
+        (3943043, "Spain vs England"),
+    ],
+
+    # =========================================================
+    # COPA AMERICA 2024
+    # =========================================================
+
+    "COPA2024 - Group Stage": [
+        (3939969, "Argentina vs Canada"),
+        (3939970, "Peru vs Chile"),
+        (3939971, "Mexico vs Jamaica"),
+        (3939972, "Ecuador vs Venezuela"),
+        (3939973, "Uruguay vs Panama"),
+        (3939974, "United States vs Bolivia"),
+        (3939975, "Colombia vs Paraguay"),
+        (3939976, "Brazil vs Costa Rica"),
+        (3939977, "Venezuela vs Mexico"),
+        (3939978, "Peru vs Canada"),
+        (3939979, "Paraguay vs Brazil"),
+        (3939980, "Ecuador vs Jamaica"),
+        (3939981, "Panama vs United States"),
+        (3939982, "Uruguay vs Bolivia"),
+        (3939983, "Colombia vs Costa Rica"),
+        (3939984, "Chile vs Argentina"),
+        (3939985, "Canada vs Chile"),
+        (3939986, "Argentina vs Peru"),
+        (3939987, "Jamaica vs Venezuela"),
+        (3939988, "Mexico vs Ecuador"),
+        (3939989, "Bolivia vs Panama"),
+        (3939990, "United States vs Uruguay"),
+        (3939991, "Brazil vs Colombia"),
+        (3939992, "Costa Rica vs Paraguay"),
+    ],
+    "COPA2024 - Quarter-finals": [
+        (3942228, "Argentina vs Ecuador"),
+        (3942229, "Venezuela vs Canada"),
+        (3942415, "Uruguay vs Brazil"),
+        (3942416, "Colombia vs Panama"),
+    ],
+    "COPA2024 - Semi-finals": [
+        (3942785, "Argentina vs Canada"),
+        (3942852, "Uruguay vs Colombia"),
+    ],
+    "COPA2024 - 3rd Place": [
+        (3943076, "Canada vs Uruguay"),
+    ],
+    "COPA2024 - Final": [
+        (3943077, "Argentina vs Colombia"),
     ],
 }
