@@ -194,6 +194,11 @@ const MATCH_INDEX: Record<string, { label: string; id: number }[]> = {
     { label: "Argentina vs Colombia", id: 3943077 },
   ],
 }
+const COMPETITIONS = {
+  "World Cup 2022": ["WC2022 · Group Stage", "WC2022 · Round of 16", "WC2022 · Quarter-finals", "WC2022 · Semi-finals", "WC2022 · 3rd Place", "WC2022 · Final"],
+  "Euro 2024": ["EURO2024 · Group Stage", "EURO2024 · Round of 16", "EURO2024 · Quarter-finals", "EURO2024 · Semi-finals", "EURO2024 · Final"],
+  "Copa América 2024": ["COPA2024 · Group Stage", "COPA2024 · Quarter-finals", "COPA2024 · Semi-finals", "COPA2024 · 3rd Place", "COPA2024 · Final"],
+}
 
 const STAGES = Object.keys(MATCH_INDEX)
 
