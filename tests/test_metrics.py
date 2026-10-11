@@ -24,6 +24,7 @@ from api import (
     FORCED_WIDE_MIN,
     HORIZONTAL_NARROW_MAX,
     HORIZONTAL_STRETCHED_MIN,
+    _auto_story_press_bypass,
     _auto_story_shape_collapse,
     _build_story_content,
     _classify_horizontal,
@@ -38,7 +39,7 @@ PRESS, OPP = "Pressers", "Opponents"
 MID = (PPDA_PRESS_MIN_X + PPDA_PASS_MAX_X) / 2   # a safely in-zone x for both
 
 
-def ev(team, type_, x, *, duel_type=None, incomplete=False, period=1, position=None, y=40.0, end=None, outcome=None):
+def ev(team, type_, x, *, duel_type=None, incomplete=False, period=1, position=None, y=40.0, end=None, outcome=None, pressure=False):
     """One synthetic event row with only the columns compute_ppda reads."""
     return {
         "team": team,
@@ -50,6 +51,7 @@ def ev(team, type_, x, *, duel_type=None, incomplete=False, period=1, position=N
         "position": position,
         "pass_end_location": None if end is None else [float(end), float(y)],
         "shot_outcome": outcome,
+        "under_pressure": True if pressure else None,
     }
 
 
@@ -447,3 +449,45 @@ def test_narration_for_a_trailing_team_does_not_pretend_the_scoreline_explains_i
     assert "trailing 0-1" in text
     assert "no scoreline reason" in text
     assert "game management" not in text
+
+
+# ── Press-bypass story ────────────────────────────────────────────────────────
+
+def _bypass_frame(n_exits, n_under=40, opp_actions=20):
+    # PRESS passes under pressure from x=50: forward exits gain 20 units (>= 15),
+    # the rest gain 2. OPP pressed hard: PPDA = 40 completed passes / 20 actions = 2.
+    under = [ev(PRESS, "Pass", 50, end=70, pressure=True) for _ in range(n_exits)]
+    under += [ev(PRESS, "Pass", 50, end=52, pressure=True) for _ in range(n_under - n_exits)]
+    pressing = [ev(OPP, "Interception", 60) for _ in range(opp_actions)]
+    return frame(*under, *pressing)
+
+
+def test_press_bypass_needs_an_actual_bypass_not_just_a_hard_press():
+    # Regression: the opponent pressing hard was enough to be eligible, so a team
+    # that escaped 5% of the time got a "press resistance" story.
+    df = _bypass_frame(n_exits=2)                      # 2/40 = 5%
+    assert _auto_story_press_bypass(df, [PRESS, OPP]) == {}
+
+
+def test_press_bypass_fires_when_the_exit_rate_is_high():
+    story = _auto_story_press_bypass(_bypass_frame(n_exits=8), [PRESS, OPP])   # 8/40 = 20%
+    assert story["team"] == PRESS
+    assert (story["exit_count"], story["exit_rate"]) == (8, 20)
+
+
+def test_press_bypass_needs_enough_exits_not_a_lucky_few():
+    # 3 of 20 is a 15% rate but only 3 exits
+    assert _auto_story_press_bypass(_bypass_frame(n_exits=3, n_under=20), [PRESS, OPP]) == {}
+
+
+def test_press_bypass_drama_is_driven_by_the_exit_rate():
+    low  = _auto_story_press_bypass(_bypass_frame(n_exits=5), [PRESS, OPP])    # 12.5%
+    high = _auto_story_press_bypass(_bypass_frame(n_exits=10), [PRESS, OPP])   # 25%
+    assert high["drama_score"] - low["drama_score"] >= 3.0
+
+
+def test_press_bypass_narration_makes_no_claim_the_data_does_not_support():
+    teams = [PRESS, OPP]
+    story = _auto_story_press_bypass(_bypass_frame(n_exits=8), teams)
+    text = " ".join(_build_story_content(story, teams)["twitter_thread"]).lower()
+    assert "textbook" not in text and "every time" not in text and "best presses" not in text

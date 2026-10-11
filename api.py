@@ -405,8 +405,18 @@ def _auto_story_false_high_line(df: pd.DataFrame, teams: list) -> dict:
     return best or {}
 
 
+# A press-bypass story needs the bypass to have actually worked. Over 292
+# team-matches the exit rate (press-breaking passes / passes under pressure) runs
+# 0-21%, median 6.2%, 75th percentile 8.4%. Previously only the opponent's PPDA
+# gated the story and it supplied most of the drama, so a team that escaped 4% of
+# the time still got "textbook press resistance" (77% of teams facing a hard
+# press were eligible, 36% even in the bottom quartile of exit rate).
+PRESS_BYPASS_MIN_EXIT_RATE = 8.5   # % of passes under pressure, ~75th percentile
+PRESS_BYPASS_MIN_EXITS     = 5     # and enough actual exits that it is not 3 passes
+
+
 def _auto_story_press_bypass(df: pd.DataFrame, teams: list) -> dict:
-    """Detect team being pressed hard but escaping effectively."""
+    """Detect team being pressed hard AND escaping effectively."""
     best = None
     best_score = 0
 
@@ -429,11 +439,14 @@ def _auto_story_press_bypass(df: pd.DataFrame, teams: list) -> dict:
         if total_under == 0:
             continue
 
-        exit_rate = round((len(pb) / total_under) * 100)
+        exit_pct = (len(pb) / total_under) * 100
+        if exit_pct < PRESS_BYPASS_MIN_EXIT_RATE or len(pb) < PRESS_BYPASS_MIN_EXITS:
+            continue
+        exit_rate = round(exit_pct)
         avg_gain  = round(float(pb["delta_d"].mean()) * METERS, 1) if not pb.empty else 0
 
-        # Drama: how good the bypass was vs how hard the press was
-        drama = min(round((exit_rate * 0.08) + (40 - opp_ppda) * 0.125, 1), 10.0)
+        # Drama: how good the bypass was (main driver) vs how hard the press was
+        drama = min(round(exit_pct * 0.3 + (40 - opp_ppda) * 0.05, 1), 10.0)
 
         if drama > best_score:
             best_score = drama
@@ -611,16 +624,15 @@ def _build_story_content(story: dict, teams: list) -> dict:
         exit_rate = story["exit_rate"]
         gain_m    = story["avg_gain_m"]
         exits     = story["exit_count"]
-        headline  = f"{team} bypassed {opp}'s press {exits} times — {exit_rate}% exit rate vs PPDA {opp_ppda}"
-        hook      = f"{opp} pressed with everything they had. {team} found a way through every time..."
+        headline  = f"{team} broke {opp}'s press {exits} times — {exit_rate}% of passes under pressure (PPDA {opp_ppda})"
+        hook      = f"{team} still found forward exits through {opp}'s press..."
         tweets    = [
-            f"1/ {opp} were hunting the ball with a PPDA of {opp_ppda} — "
-            f"one of the most aggressive press setups you'll see at this level.",
-            f"2/ {team} broke that press {exits} times under direct pressure, "
-            f"each exit gaining an average of {gain_m}m toward goal. "
-            f"A {exit_rate}% success rate against one of the tournament's best presses.",
-            f"3/ This is what separates elite teams from the rest: not just resisting a press, "
-            f"but converting it into immediate forward momentum. Textbook press resistance.",
+            f"1/ {opp} pressed with a PPDA of {opp_ppda} ({classify_ppda(opp_ppda).lower()}).",
+            f"2/ {team} still broke that press {exits} times under pressure, "
+            f"each exit gaining an average of {gain_m}m toward goal: {exit_rate}% of their passes "
+            f"under pressure, well above the typical rate.",
+            f"3/ Resisting a press is one thing; turning it into forward progress is another. "
+            f"The exit rate is the measure of whether it worked.",
         ]
         yt = f"How {team} Broke {opp}'s High Press | Tactical Breakdown"
         key_stat, key_label = f"{exit_rate}%", "Exit Rate"
