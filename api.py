@@ -191,9 +191,17 @@ def _classify_vertical(avg_x: float) -> str:
     if avg_x > 60.0: return "High Line"
     return "Mid Block"
 
+# Width = mean |y - 40| of a team's defensive events (pitch units). Events spread
+# evenly across the pitch score 20, and across 292 team-matches the real range
+# is 13-24 (5th-95th percentile 17-22), so the old 15 / 27 cut-offs sat outside
+# nearly all of it (99% "Balanced"). Calibrated to the bottom and top fifth
+# (20th / 80th percentile): 17% Narrow / 68% Balanced / 15% Stretched.
+HORIZONTAL_NARROW_MAX    = 18.7
+HORIZONTAL_STRETCHED_MIN = 21.1
+
 def _classify_horizontal(avg_y_offset: float) -> str:
-    if avg_y_offset < 15.0: return "Narrow"
-    if avg_y_offset > 27.0: return "Stretched"
+    if avg_y_offset < HORIZONTAL_NARROW_MAX:    return "Narrow"
+    if avg_y_offset > HORIZONTAL_STRETCHED_MIN: return "Stretched"
     return "Balanced"
 
 def _classify_compactness(gap_m: float) -> str:

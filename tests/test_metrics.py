@@ -21,6 +21,9 @@ from api import (
     PPDA_PRESS_MIN_X,
     classify_ppda,
     compute_ppda,
+    HORIZONTAL_NARROW_MAX,
+    HORIZONTAL_STRETCHED_MIN,
+    _classify_horizontal,
     _defensive_lines,
     _exploit_finder_for_team,
     get_defensive_events,
@@ -295,3 +298,24 @@ def test_gap_between_lines_value_and_classification():
 def test_exploit_finder_returns_nothing_without_a_midfield_line():
     df = frame(*opp_passes(5), *_line_events(10, 30, "Left Center Back"))
     assert _exploit_finder_for_team(df, PRESS) == {}
+
+
+# ── Horizontal shape ──────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize(
+    "value, label",
+    [
+        (HORIZONTAL_NARROW_MAX - 0.01, "Narrow"),
+        (HORIZONTAL_NARROW_MAX, "Balanced"),
+        (20.0, "Balanced"),                       # events spread evenly across the pitch
+        (HORIZONTAL_STRETCHED_MIN, "Balanced"),
+        (HORIZONTAL_STRETCHED_MIN + 0.01, "Stretched"),
+    ],
+)
+def test_classify_horizontal_boundaries(value, label):
+    assert _classify_horizontal(value) == label
+
+
+def test_horizontal_thresholds_sit_inside_the_realistic_range():
+    # Regression: 15 / 27 sat outside the real 13-24 range, so 99% were Balanced.
+    assert 17.0 < HORIZONTAL_NARROW_MAX < 20.0 < HORIZONTAL_STRETCHED_MIN < 23.0
