@@ -45,7 +45,22 @@ class AnalysisRequest(BaseModel):
 
 GOAL         = (120.0, 40.0)
 METERS       = 0.875
-PPDA_ACTIONS = ["Tackle", "Interception", "Pressure"]
+# PPDA = opponent passes in their own defensive two-thirds / our defensive
+# actions in that same stretch of pitch. StatsBomb has no "Tackle" event type:
+# tackles are Duel events with duel_type == "Tackle". Pressure events are
+# deliberately excluded, they are not defensive actions in the Opta definition
+# and counting them collapses PPDA to ~3.
+# StatsBomb coordinates are normalised per team (every team attacks towards
+# x=120), so each team's events are read in that team's own frame.
+PPDA_ACTION_TYPES  = ["Interception", "Foul Committed"]
+PPDA_PRESS_MIN_X   = 40.0    # pressing team's frame: opponent's defensive 2/3
+PPDA_PASS_MAX_X    = 80.0    # opponent's frame: their own defensive 2/3
+# Calibrated on 98 team-matches (49 matches) from the three tournaments:
+# 22% / 56% / 21% Aggressive / Moderate / Passive, the same split the old
+# 2.5 / 4.4 cut-offs gave on the old Pressure-dominated metric.
+PPDA_AGGRESSIVE_MAX = 9.0
+PPDA_MODERATE_MAX   = 20.0
+PPDA_PRESSED_MAX    = 14.0   # "opponent pressed hard" gate in the press-bypass story
 
 DANGER_CORRIDOR = {"x_min": 88.0, "x_max": 120.0, "y_min": 18.0, "y_max": 62.0}
 
@@ -82,19 +97,25 @@ def compute_ppda(df: pd.DataFrame, pressing_team: str) -> float:
     df = df.copy()
     df["loc_x"] = df["location"].apply(
         lambda l: float(l[0]) if isinstance(l, (list, tuple)) else float("nan"))
+    in_play = df["period"] != 5
+    if "duel_type" in df.columns:
+        is_tackle = (df["type"] == "Duel") & (df["duel_type"] == "Tackle")
+    else:
+        is_tackle = pd.Series(False, index=df.index)
     opp_passes = len(df[
-        (df["team"] == opponent) & (df["type"] == "Pass") &
-        (df["period"] != 5) & (df["loc_x"] <= 60)
+        (df["team"] == opponent) & (df["type"] == "Pass") & in_play &
+        df["pass_outcome"].isna() & (df["loc_x"] <= PPDA_PASS_MAX_X)
     ])
     press_actions = len(df[
-        (df["team"] == pressing_team) & (df["type"].isin(PPDA_ACTIONS)) &
-        (df["period"] != 5) & (df["loc_x"] <= 60)
+        (df["team"] == pressing_team) & in_play &
+        (df["type"].isin(PPDA_ACTION_TYPES) | is_tackle) &
+        (df["loc_x"] >= PPDA_PRESS_MIN_X)
     ])
     return round(opp_passes / press_actions, 2) if press_actions > 0 else float("inf")
 
 def classify_ppda(ppda: float) -> str:
-    if ppda < 2.5: return "Aggressive Press"
-    if ppda < 4.4: return "Moderate Press"
+    if ppda < PPDA_AGGRESSIVE_MAX: return "Aggressive Press"
+    if ppda < PPDA_MODERATE_MAX:   return "Moderate Press"
     return "Passive / Low Press"
 
 def get_defensive_events(df: pd.DataFrame, team: str) -> pd.DataFrame:
@@ -174,7 +195,7 @@ async def run_tactical_engine(request: AnalysisRequest):
 #
 # Five story detectors, each scored on a 0-10 drama scale:
 #   1. MOMENTUM_SHIFT     — Biggest change in progressive pass rate per half
-#   2. FALSE_HIGH_LINE    — High defensive line + passive press (PPDA > 4.4)
+#   2. FALSE_HIGH_LINE    — High defensive line + passive press (PPDA >= PPDA_AGGRESSIVE_MAX)
 #   3. PRESS_BYPASS       — High press being beaten with dangerous exits
 #   4. SHAPE_COLLAPSE     — Defensive line drops/rises sharply between halves
 #   5. CLINICAL_SURGE     — One team significantly more dangerous per pass
@@ -278,7 +299,7 @@ def _auto_story_false_high_line(df: pd.DataFrame, teams: list) -> dict:
 
         if v_state == "High Line" and press_cls in ["Passive / Low Press", "Moderate Press"]:
             # Drama: base 7 + how passive the press is
-            drama = min(round(7.0 + max(0, ppda - 4.4) * 0.4, 1), 10.0)
+            drama = min(round(7.0 + max(0, ppda - PPDA_MODERATE_MAX) * 0.1, 1), 10.0)
             if drama > best_score:
                 best_score = drama
                 def_line_m = round(def_line_x * METERS, 1)
@@ -307,7 +328,7 @@ def _auto_story_press_bypass(df: pd.DataFrame, teams: list) -> dict:
         opp_ppda = compute_ppda(df, opp)
 
         # Only interesting if opponent was pressing aggressively
-        if opp_ppda > 3.5:
+        if opp_ppda > PPDA_PRESSED_MAX:
             continue
 
         pb = _get_press_breaking_passes(df, team)
@@ -322,7 +343,7 @@ def _auto_story_press_bypass(df: pd.DataFrame, teams: list) -> dict:
         avg_gain  = round(float(pb["delta_d"].mean()) * METERS, 1) if not pb.empty else 0
 
         # Drama: how good the bypass was vs how hard the press was
-        drama = min(round((exit_rate * 0.08) + (10 - opp_ppda) * 0.5, 1), 10.0)
+        drama = min(round((exit_rate * 0.08) + (40 - opp_ppda) * 0.125, 1), 10.0)
 
         if drama > best_score:
             best_score = drama
@@ -942,13 +963,13 @@ def _press_autopsy(df: pd.DataFrame, request: AnalysisRequest) -> dict:
     hp_exit = a_exit if harder_presser == team_a else b_exit
     sp_exit = b_exit if harder_presser == team_a else a_exit
 
-    if hp_ppda < 2.5 and sp_exit >= 35:
+    if hp_ppda < PPDA_AGGRESSIVE_MAX and sp_exit >= 35:
         verdict = (
             f"{harder_presser} pressed with serious intensity (PPDA {hp_ppda}) but {softer_presser} "
             f"found a way through — {sp_exit}% of passes under pressure escaped. "
             f"A high press that wasn't suffocating enough."
         )
-    elif hp_ppda < 2.5 and sp_exit < 25:
+    elif hp_ppda < PPDA_AGGRESSIVE_MAX and sp_exit < 25:
         verdict = (
             f"{harder_presser}'s press was working (PPDA {hp_ppda}) — {softer_presser} "
             f"could only escape {sp_exit}% of the time. "
@@ -1270,8 +1291,8 @@ def _exploit_finder(df: pd.DataFrame, request: AnalysisRequest) -> dict:
         "Midfield line  = P60 of ALL defensive event X coords",
         "Gap            = (midfield line - defensive line) × 0.875m",
         "Thresholds     : Compact < 12m | Standard 12-18m | Gapped > 18m",
-        "PPDA           : < 2.5 Aggressive | < 4.4 Moderate | > 4.4 Passive",
-        "False High Line: v_state == High Line AND PPDA > 4.4",
+        f"PPDA           : < {PPDA_AGGRESSIVE_MAX:g} Aggressive | < {PPDA_MODERATE_MAX:g} Moderate | >= {PPDA_MODERATE_MAX:g} Passive",
+        f"False High Line: v_state == High Line AND PPDA >= {PPDA_AGGRESSIVE_MAX:g}",
     ]
 
     return {
