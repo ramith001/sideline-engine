@@ -252,6 +252,40 @@ async def run_tactical_engine(request: AnalysisRequest):
 # The highest-scoring story wins and generates the narrative.
 # =============================================================================
 
+# Game state. A defensive line or a progression rate that moves after half-time
+# is often just the scoreline (leading teams sit deeper, trailing teams push
+# up), so a story must know the half-time score before it blames tactics.
+
+SHIFT_EXPLAINED_WEIGHT = 0.5   # drama weight of a line shift the half-time score explains
+
+
+def _goals_scored(df: pd.DataFrame, team: str, periods: list) -> int:
+    """Goals credited to `team` in the given periods: its shots that scored plus
+    own goals scored against the other side."""
+    in_periods = df["period"].isin(periods) & (df["team"] == team)
+    shots = df[in_periods & (df["type"] == "Shot")]
+    scored = shots["shot_outcome"].apply(
+        lambda x: (x.get("name") == "Goal") if isinstance(x, dict) else (x == "Goal")
+    )
+    return int(scored.sum()) + int((in_periods & (df["type"] == "Own Goal For")).sum())
+
+
+def _halftime_state(df: pd.DataFrame, team: str, opponent) -> dict:
+    """Half-time score from `team`'s side: leading / level / trailing."""
+    ht_for     = _goals_scored(df, team, [1])
+    ht_against = _goals_scored(df, opponent, [1]) if opponent else 0
+    margin     = ht_for - ht_against
+    state      = "leading" if margin > 0 else ("trailing" if margin < 0 else "level")
+    return {"ht_for": ht_for, "ht_against": ht_against, "ht_margin": margin, "state": state}
+
+
+def _state_phrase(story: dict) -> str:
+    """'leading 2-0' / 'level at 1-1' / 'trailing 0-1', the team's own score first."""
+    score = f"{story['ht_for']}-{story['ht_against']}"
+    return {"leading": f"leading {score}", "trailing": f"trailing {score}"}.get(
+        story["state"], f"level at {score}")
+
+
 def _compute_period_prog_rate(df: pd.DataFrame, team: str) -> dict:
     """Progressive pass count per period for a team."""
     rates = {}
@@ -315,7 +349,9 @@ def _auto_story_momentum_shift(df: pd.DataFrame, teams: list) -> dict:
             best_score = drama
             direction = "increased" if rate2 > rate1 else "dropped"
             minute_ref = "46'" if rate2 > rate1 else "HT"
+            opp_name = next((t for t in teams if t != team), None)
             best = {
+                **_halftime_state(df, team, opp_name),
                 "story_type":    "momentum_shift",
                 "drama_score":   drama,
                 "team":          team,
@@ -429,13 +465,24 @@ def _auto_story_shape_collapse(df: pd.DataFrame, teams: list) -> dict:
         delta_u = x2 - x1
         delta_m = round(abs(delta_u) * METERS, 1)
 
+        opp_name = next((t for t in teams if t != team), None)
+        state    = _halftime_state(df, team, opp_name)
+        # A leading team dropping deeper, or a trailing team pushing up, is the
+        # scoreline talking, not a tactical story, so it counts for less.
+        explained = (delta_u < 0 and state["state"] == "leading") or \
+                    (delta_u > 0 and state["state"] == "trailing")
+
         # Drama: how big the shift was
         drama = min(round(delta_m * 0.55, 1), 10.0)
+        if explained:
+            drama = round(drama * SHIFT_EXPLAINED_WEIGHT, 1)
 
         if drama > best_score and delta_m >= 5.0:
             best_score = drama
             direction = "pushed higher" if delta_u > 0 else "dropped deeper"
             best = {
+                **state,
+                "explained":   explained,
                 "story_type":  "shape_collapse",
                 "drama_score": drama,
                 "team":        team,
@@ -496,32 +543,45 @@ def _build_story_content(story: dict, teams: list) -> dict:
     if stype == "momentum_shift":
         rate1, rate2, delta = story["rate1"], story["rate2"], story["delta"]
         direction = story["direction"]
+        state     = story["state"]
+        phrase    = _state_phrase(story)
         if direction == "increased":
             headline = f"HT: {team} shifts gears — progressive passing {direction} by {delta} in 2nd half"
-            hook     = f"{opp} thought the first half told the whole story. {team} had other ideas..."
+            hook     = {"trailing": f"{team} went in at the break {phrase}. The second half looked very different...",
+                        "leading":  f"{team} went in {phrase} and still turned it up after the break...",
+                        }.get(state, f"The game was {phrase} at half-time. Then {team} stepped up...")
+            verdict3 = {
+                "trailing": f"3/ Behind at the break, some of that is simply a team chasing the game. "
+                            f"The scoreline is part of the explanation; the numbers show the surge, not the instruction behind it.",
+                "leading":  f"3/ They were already ahead and still raised the tempo, so this was a team pushing on "
+                            f"from a position of strength rather than chasing the game.",
+            }.get(state, f"3/ With the game level, nothing in the scoreline forced the change. "
+                         f"The data shows the surge, not what caused it.")
             tweets   = [
-                f"1/ In the first half, {team} managed just {rate1} progressive passes. "
-                f"{opp} were controlling the tempo and it looked comfortable.",
-                f"2/ Then {team} changed something at half time. In the second half they "
-                f"generated {rate2} progressive passes — a {delta}-pass surge that completely "
-                f"shifted the momentum of the game.",
-                f"3/ That tactical adjustment gave {team} territorial dominance in the second half. "
-                f"The numbers don't lie — this was a game won in the dressing room at half time.",
+                f"1/ In the first half, {team} managed {rate1} progressive passes. "
+                f"They went into the break {phrase}.",
+                f"2/ In the second half they generated {rate2} — a {delta}-pass surge.",
+                verdict3,
             ]
-            yt = f"The Half-Time Tactical Switch That Won It | {team} vs {opp} Breakdown"
+            yt = f"{team}'s Second-Half Surge | Progression Breakdown"
             key_stat, key_label = f"+{delta}", "HT Surge"
         else:
             headline = f"HT: {team}'s momentum {direction} sharply — from {rate1} to {rate2} progressive passes"
-            hook     = f"{team} dominated the first half. The second half was a completely different game..."
+            hook     = {"leading": f"{team} went in {phrase}. The second half was a much quieter game...",
+                        }.get(state, f"{team} had {rate1} progressive passes in the first half. The second half was different...")
+            verdict3 = {
+                "leading":  f"3/ Fewer progressive passes while ahead is what game management looks like. "
+                            f"The scoreline explains it better than a tactical failure would.",
+                "trailing": f"3/ Progressing less while behind is the version that points to {opp} having adapted, "
+                            f"though the event data shows the drop, not its cause.",
+            }.get(state, f"3/ With the game level, the drop points to {opp} adapting or {team} tiring. "
+                         f"The data shows that it happened, not why.")
             tweets   = [
-                f"1/ {team} were dominant in the first half — {rate1} progressive passes, "
-                f"dictating tempo and threatening regularly.",
-                f"2/ The second half told a different story. Progressive passes dropped to {rate2} "
-                f"— a {delta}-pass fall-off that suggests {opp} made a significant tactical adjustment at half time.",
-                f"3/ This is the tactical problem every team faces at the top level: "
-                f"the opponent adapts. {team}'s first-half blueprint became obsolete.",
+                f"1/ {team} made {rate1} progressive passes in the first half and went into the break {phrase}.",
+                f"2/ In the second half that dropped to {rate2} — a {delta}-pass fall-off.",
+                verdict3,
             ]
-            yt = f"Why {team} Ran Out of Ideas | Half-Time Tactical Analysis"
+            yt = f"Why {team}'s Progression Dropped | Half-Time Analysis"
             key_stat, key_label = f"-{delta}", "HT Drop"
 
     elif stype == "false_high_line":
@@ -564,18 +624,48 @@ def _build_story_content(story: dict, teams: list) -> dict:
         delta_m   = story["delta_m"]
         direction = story["direction"]
         x1_m, x2_m = story["x1_m"], story["x2_m"]
-        headline  = f"{team} {direction} {delta_m}m between halves — major shape shift detected"
-        hook      = f"The tactical story of this game happened at half time. You just didn't see it..."
+        state     = story["state"]
+        explained = story["explained"]
+        phrase    = _state_phrase(story)
+        ctx       = f"with the game {phrase}" if state == "level" else f"while {phrase}"
+        headline  = f"{team} {direction} {delta_m}m after the break {ctx}"
+        if explained:
+            hook = f"The scoreline explains most of what {team}'s shape did after half-time..."
+        else:
+            hook = f"The scoreline doesn't explain what {team}'s shape did after half-time..."
+        # The causal claim depends on the game state, never assumed.
+        verdict3 = {
+            ("dropped deeper", "leading"):
+                "3/ A line dropping while a team leads is game management, not a collapse: "
+                "the scoreline explains the shape change.",
+            ("dropped deeper", "trailing"):
+                f"3/ A team that is behind has no scoreline reason to sit deeper, so this points to {opp} "
+                f"pushing them back or a deliberate change of shape. The event data shows the retreat, not which.",
+            ("dropped deeper", "level"):
+                f"3/ With the scoreline not forcing it, this is a genuine change of shape: an instruction, or {opp} "
+                f"pushing them back. The event data shows the shift, not the cause.",
+            ("pushed higher", "trailing"):
+                "3/ Pushing up while behind is what chasing a game looks like: "
+                "the scoreline explains the shape change.",
+            ("pushed higher", "leading"):
+                "3/ Pushing up while ahead is a choice rather than a necessity: this team kept attacking "
+                "the game instead of sitting on the lead.",
+            ("pushed higher", "level"):
+                "3/ With the game level, nothing in the scoreline forced the move. "
+                "The event data shows the shift, not the cause.",
+        }[(direction, state)]
         tweets    = [
-            f"1/ In the first half, {team}'s defensive line was at {x1_m}m. "
-            f"A standard, measured setup — neither aggressive nor passive.",
-            f"2/ The second half opened with {team} {direction} by {delta_m}m to {x2_m}m. "
-            f"That's not just adjustment — that's a tactical reset driven by what happened in the first half.",
-            f"3/ Defensive line shifts of this magnitude are almost always a response to being hurt. "
-            f"The data captured what the broadcast never showed you.",
+            f"1/ In the first half, {team}'s defensive line averaged {x1_m}m from their own goal. "
+            f"They went into the break {phrase}.",
+            f"2/ After the break the line {direction} by {delta_m}m, to {x2_m}m.",
+            verdict3,
         ]
-        yt = f"The {delta_m}m Shift That Changed Everything | {team} Tactical Analysis"
-        key_stat, key_label = f"{delta_m}m", "Line Shift"
+        if explained:
+            yt = f"How the Scoreline Shaped {team} | Defensive Shape Breakdown"
+        else:
+            yt = f"The {delta_m}m Shift in {team}'s Shape | Tactical Analysis"
+        key_stat  = f"{delta_m}m"
+        key_label = "Line Drop" if direction == "dropped deeper" else "Line Push"
 
     elif stype == "clinical_surge":
         better_pct = story["better_pct"]

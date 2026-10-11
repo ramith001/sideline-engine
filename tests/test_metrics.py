@@ -24,9 +24,12 @@ from api import (
     FORCED_WIDE_MIN,
     HORIZONTAL_NARROW_MAX,
     HORIZONTAL_STRETCHED_MIN,
+    _auto_story_shape_collapse,
+    _build_story_content,
     _classify_horizontal,
     _defensive_lines,
     _exploit_finder_for_team,
+    _halftime_state,
     _progress_trap_for_team,
     get_defensive_events,
 )
@@ -35,7 +38,7 @@ PRESS, OPP = "Pressers", "Opponents"
 MID = (PPDA_PRESS_MIN_X + PPDA_PASS_MAX_X) / 2   # a safely in-zone x for both
 
 
-def ev(team, type_, x, *, duel_type=None, incomplete=False, period=1, position=None, y=40.0, end=None):
+def ev(team, type_, x, *, duel_type=None, incomplete=False, period=1, position=None, y=40.0, end=None, outcome=None):
     """One synthetic event row with only the columns compute_ppda reads."""
     return {
         "team": team,
@@ -46,6 +49,7 @@ def ev(team, type_, x, *, duel_type=None, incomplete=False, period=1, position=N
         "period": period,
         "position": position,
         "pass_end_location": None if end is None else [float(end), float(y)],
+        "shot_outcome": outcome,
     }
 
 
@@ -373,3 +377,65 @@ def test_forced_wide_verdict_stays_quiet_for_an_ordinary_team():
     td = _progress_trap_for_team(_wide_share_frame(42, 58), PRESS, OPP)
     assert td["forced_wide_pct"] == 42
     assert "consistently forced wide" not in td["verdict"]
+
+
+# ── Game state and story narration ────────────────────────────────────────────
+
+def _goal(team, period):
+    return ev(team, "Shot", 100, period=period, outcome="Goal")
+
+
+def test_halftime_state_counts_first_half_goals_and_own_goals_only():
+    df = frame(
+        _goal(PRESS, 1),
+        ev(PRESS, "Own Goal For", 5, period=1),     # an own goal the other side scored
+        _goal(OPP, 1),
+        _goal(OPP, 2), _goal(OPP, 2),               # second half: not part of the half-time score
+        ev(PRESS, "Shot", 100, period=1, outcome="Saved"),
+    )
+    st = _halftime_state(df, PRESS, OPP)
+    assert (st["ht_for"], st["ht_against"], st["state"]) == (2, 1, "leading")
+    assert _halftime_state(df, OPP, PRESS)["state"] == "trailing"
+
+
+def test_halftime_state_level():
+    assert _halftime_state(frame(ev(PRESS, "Pass", 50), ev(OPP, "Pass", 50)), PRESS, OPP)["state"] == "level"
+
+
+def _line_shift_frame(*goals):
+    # PRESS defends at x=60 in the first half and x=40 in the second: dropped
+    # 20 units (17.5m).
+    rows = [ev(PRESS, "Pressure", 60, period=1) for _ in range(10)]
+    rows += [ev(PRESS, "Pressure", 40, period=2) for _ in range(10)]
+    rows += [ev(OPP, "Pass", 50)]
+    return frame(*rows, *goals)
+
+
+def test_dropping_deeper_while_leading_is_discounted_as_game_management():
+    teams = [PRESS, OPP]
+    level   = _auto_story_shape_collapse(_line_shift_frame(), teams)
+    leading = _auto_story_shape_collapse(_line_shift_frame(_goal(PRESS, 1)), teams)
+    assert level["explained"] is False and level["state"] == "level"
+    assert leading["explained"] is True and leading["state"] == "leading"
+    assert leading["drama_score"] == pytest.approx(level["drama_score"] * 0.5, abs=0.1)
+
+
+def test_narration_does_not_blame_a_leading_team_for_dropping_deeper():
+    # Regression: this was narrated for every team as "almost always a response
+    # to being hurt", including a team simply protecting a 2-0 half-time lead.
+    teams = [PRESS, OPP]
+    story = _auto_story_shape_collapse(_line_shift_frame(_goal(PRESS, 1), _goal(PRESS, 1)), teams)
+    text = " ".join(_build_story_content(story, teams)["Messagecircle_thread"])
+    assert "leading 2-0" in text
+    assert "game management" in text
+    assert "hurt" not in text
+
+
+def test_narration_for_a_trailing_team_does_not_pretend_the_scoreline_explains_it():
+    teams = [PRESS, OPP]
+    story = _auto_story_shape_collapse(_line_shift_frame(_goal(OPP, 1)), teams)
+    assert story["explained"] is False and story["state"] == "trailing"
+    text = " ".join(_build_story_content(story, teams)["Messagecircle_thread"])
+    assert "trailing 0-1" in text
+    assert "no scoreline reason" in text
+    assert "game management" not in text
