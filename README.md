@@ -34,4 +34,4 @@ Because the thresholds are percentile-based on these three tournaments, the labe
 
 ## Background
 
-Co-founded and built with Panav Java over roughly four months in 2026. Secured Raees Mahmood (Pythagoras in Boots, Sky Sports analyst) as a launch partner.
+Co-founded and built with Panav Java over roughly four months in 2026.
