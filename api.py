@@ -9,6 +9,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import io, base64, math
+import os
+from functools import lru_cache
 from typing import Optional
 
 import matplotlib
@@ -22,9 +24,14 @@ import numpy as np
 
 app = FastAPI()
 
+DEFAULT_CORS_ORIGINS = ["http://localhost:3000", "https://sideline-engine.vercel.app"]
+CORS_ORIGINS = [
+    o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()
+] or DEFAULT_CORS_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://sideline-engine.vercel.app"],
+    allow_origins=CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -140,9 +147,13 @@ def health_check():
 
 # ── Main route ────────────────────────────────────────────────────────────────
 
+@lru_cache(maxsize=32)
+def _fetch_events(match_id: int) -> pd.DataFrame:
+    return sb.events(match_id=match_id)
+
 @app.post("/analyze")
 async def run_tactical_engine(request: AnalysisRequest):
-    df = sb.events(match_id=request.match_id)
+    df = _fetch_events(request.match_id).copy()
     if request.template == "The Press Autopsy":
         return _press_autopsy(df, request)
     elif request.template == "The Exploit Finder":
