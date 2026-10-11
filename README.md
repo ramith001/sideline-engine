@@ -1,5 +1,7 @@
 # Sideline AI
 
+![tests](https://github.com/ramith001/sideline-engine/actions/workflows/tests.yml/badge.svg)
+
 Automated tactical reasoning engine for football. Converts raw coordinate-level match event data into tactical verdicts, pitch visuals, and creator-ready content, instantly instead of through manual video review.
 
 ## What it does
