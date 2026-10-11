@@ -57,9 +57,11 @@ METERS       = 0.875
 PPDA_ACTION_TYPES  = ["Interception", "Foul Committed"]
 PPDA_PRESS_MIN_X   = 40.0    # pressing team's frame: opponent's defensive 2/3
 PPDA_PASS_MAX_X    = 80.0    # opponent's frame: their own defensive 2/3
-# Calibrated on 98 team-matches (49 matches) from the three tournaments:
-# 22% / 56% / 21% Aggressive / Moderate / Passive, the same split the old
-# 2.5 / 4.4 cut-offs gave on the old Pressure-dominated metric.
+# Percentile-based on this dataset, not an external standard. The old 2.5 / 3.5 /
+# 4.4 cut-offs sat at the 19th / 54th / 75th percentile of the old metric;
+# scripts/calibrate_ppda.py maps those percentiles onto the corrected metric
+# (8.9 / 14.4 / 19.3 over all 292 team-matches) and these are the rounded values.
+# Resulting split: 19% Aggressive / 59% Moderate / 22% Passive.
 PPDA_AGGRESSIVE_MAX = 9.0
 PPDA_MODERATE_MAX   = 20.0
 PPDA_PRESSED_MAX    = 14.0   # "opponent pressed hard" gate in the press-bypass story
