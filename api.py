@@ -1648,6 +1648,14 @@ def _danger_map(df: pd.DataFrame, request: AnalysisRequest) -> dict:
 # PATH 5 — THE PROGRESS TRAP
 # =============================================================================
 
+# Share of a team's completed progressive passes that start in the wide channels
+# (|y-40| > 20). Over 292 team-matches it runs 26-59% (median 42%, 90th
+# percentile 52%), so the old 60% cut-off could never be reached: the
+# "forced wide" verdict fired for 0% of teams. Set at the 90th percentile,
+# so only the clear outliers are called out (10.6%).
+FORCED_WIDE_MIN    = 52
+FORCED_WIDE_MARGIN = 10   # the other team must be this many points less wide
+
 def _progress_trap_verdict(teams_data: list) -> str:
     valid = [td for td in teams_data if td and td.get("total_attempts", 0) > 0]
     if not valid:
@@ -1682,11 +1690,11 @@ def _progress_trap_verdict(teams_data: list) -> str:
         return (f"Both teams struggled to progress the ball — {n0} {sr0}% stall rate, {n1} {sr1}%. "
                 f"Forced wide percentages: {n0} {wide0}%, {n1} {wide1}%. "
                 f"This was a match where the central corridor was largely shut down for both sides.")
-    elif wide0 >= 55 and wide1 < 40:
+    elif wide0 >= FORCED_WIDE_MIN and wide1 <= wide0 - FORCED_WIDE_MARGIN:
         return (f"{n0} were consistently forced wide ({wide0}% of completions) "
                 f"while {n1} found the central route more accessible ({wide1}% forced wide). "
                 f"Block depths: {n0} facing {block1}m ({label1}), {n1} facing {block0}m ({label0}).")
-    elif wide1 >= 55 and wide0 < 40:
+    elif wide1 >= FORCED_WIDE_MIN and wide0 <= wide1 - FORCED_WIDE_MARGIN:
         return (f"{n1} were consistently forced wide ({wide1}% of completions) "
                 f"while {n0} found the central route more accessible ({wide0}% forced wide). "
                 f"Block depths: {n1} facing {block0}m ({label0}), {n0} facing {block1}m ({label1}).")
@@ -1763,7 +1771,7 @@ def _progress_trap_for_team(df: pd.DataFrame, team: str, opponent: str) -> dict:
     elif stall_rate >= 50 and primary_stall_zone == "Final Third":
         verdict = (f"{team} progressed into the final third but hit a wall — {stall_rate}% stall rate. "
                    f"The opponent's {block_label} ({block_depth_m}m) absorbed the volume.")
-    elif forced_wide_pct >= 60:
+    elif forced_wide_pct >= FORCED_WIDE_MIN:
         verdict = (f"{team} were consistently forced wide — {forced_wide_pct}% of completed progressions "
                    f"went through the wide corridor. The central route was shut down.")
     elif stall_rate < 30:

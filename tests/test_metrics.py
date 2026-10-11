@@ -21,6 +21,7 @@ from api import (
     PPDA_PRESS_MIN_X,
     classify_ppda,
     compute_ppda,
+    FORCED_WIDE_MIN,
     HORIZONTAL_NARROW_MAX,
     HORIZONTAL_STRETCHED_MIN,
     _classify_horizontal,
@@ -347,3 +348,28 @@ def test_a_high_defending_team_is_not_labelled_a_low_block():
     td = _progress_trap_for_team(_trap_frame(10, 75), PRESS, OPP)   # mean 62
     assert td["block_x_u"] == 62.0
     assert td["block_label"] == "High Block / Pressing"
+
+
+# ── Progress Trap forced-wide verdict ─────────────────────────────────────────
+
+def _wide_share_frame(n_wide, n_central):
+    # completed forward passes starting in the wide channel (y=10) or centrally (y=40)
+    rows = [ev(PRESS, "Pass", 50, end=70, y=10) for _ in range(n_wide)]
+    rows += [ev(PRESS, "Pass", 50, end=70, y=40) for _ in range(n_central)]
+    rows += [ev(OPP, "Pressure", 50) for _ in range(5)]
+    return frame(*rows)
+
+
+def test_forced_wide_verdict_can_fire_below_the_old_60_percent_cutoff():
+    # Regression: the cut-off was 60%, above the real maximum (59%), so it
+    # never fired. 6 of 10 progressions starting wide is 60%; 53 of 100 is 53%.
+    assert FORCED_WIDE_MIN <= 59
+    td = _progress_trap_for_team(_wide_share_frame(53, 47), PRESS, OPP)
+    assert td["forced_wide_pct"] == 53
+    assert "consistently forced wide" in td["verdict"]
+
+
+def test_forced_wide_verdict_stays_quiet_for_an_ordinary_team():
+    td = _progress_trap_for_team(_wide_share_frame(42, 58), PRESS, OPP)
+    assert td["forced_wide_pct"] == 42
+    assert "consistently forced wide" not in td["verdict"]
