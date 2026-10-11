@@ -425,7 +425,7 @@ def test_narration_does_not_blame_a_leading_team_for_dropping_deeper():
     # to being hurt", including a team simply protecting a 2-0 half-time lead.
     teams = [PRESS, OPP]
     story = _auto_story_shape_collapse(_line_shift_frame(_goal(PRESS, 1), _goal(PRESS, 1)), teams)
-    text = " ".join(_build_story_content(story, teams)["Messagecircle_thread"])
+    text = " ".join(_build_story_content(story, teams)["twitter_thread"])
     assert "leading 2-0" in text
     assert "game management" in text
     assert "hurt" not in text
@@ -435,7 +435,7 @@ def test_narration_for_a_trailing_team_does_not_pretend_the_scoreline_explains_i
     teams = [PRESS, OPP]
     story = _auto_story_shape_collapse(_line_shift_frame(_goal(OPP, 1)), teams)
     assert story["explained"] is False and story["state"] == "trailing"
-    text = " ".join(_build_story_content(story, teams)["Messagecircle_thread"])
+    text = " ".join(_build_story_content(story, teams)["twitter_thread"])
     assert "trailing 0-1" in text
     assert "no scoreline reason" in text
     assert "game management" not in text

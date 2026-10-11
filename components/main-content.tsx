@@ -210,8 +210,8 @@ interface CreatorStory {
   story_type:           string
   drama_score:          number
   headline:             string
-  Messagecircle_hook:   string
-  Messagecircle_thread: string[]
+  twitter_hook:         string
+  twitter_thread:       string[]
   youtube_hook:         string
   key_stat:             string
   key_stat_label:       string
@@ -640,7 +640,7 @@ function AutoStoryHero({ story, matchLabel }: { story: CreatorStory; matchLabel:
             </div>
           )}
         </div>
-        <MessagecircleThreadCard hook={story.Messagecircle_hook} thread={story.Messagecircle_thread} />
+        <TwitterThreadCard hook={story.twitter_hook} thread={story.twitter_thread} />
         <YouTubeHookCard hook={story.youtube_hook} />
       </div>
     </div>
@@ -651,7 +651,7 @@ function AutoStoryHero({ story, matchLabel }: { story: CreatorStory; matchLabel:
 // Thread & YouTube cards
 // ---------------------------------------------------------------------------
 
-function MessagecircleThreadCard({ hook, thread }: { hook: string; thread: string[] }) {
+function TwitterThreadCard({ hook, thread }: { hook: string; thread: string[] }) {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
   const [copiedAll, setCopiedAll] = useState(false)
   const copy = async (text: string, idx: number | "all") => {
