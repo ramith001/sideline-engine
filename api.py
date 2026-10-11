@@ -145,6 +145,41 @@ def _exclude_goalkeeper(events: pd.DataFrame) -> pd.DataFrame:
         return False
     return events[~events["position"].apply(_is_gk)].copy()
 
+# StatsBomb position names, grouped into the lines that "gap between lines"
+# is measured between. Goalkeepers (and forwards) are in neither group.
+DEFENDER_POSITIONS = {
+    "Left Center Back", "Right Center Back", "Center Back",
+    "Left Back", "Right Back", "Left Wing Back", "Right Wing Back",
+}
+MIDFIELDER_POSITIONS = {
+    "Left Defensive Midfield", "Right Defensive Midfield", "Center Defensive Midfield",
+    "Left Center Midfield", "Right Center Midfield", "Center Attacking Midfield",
+    "Left Midfield", "Right Midfield", "Left Attacking Midfield", "Right Attacking Midfield",
+}
+MIN_LINE_EVENTS = 5   # defensive actions needed from each line to place it
+
+
+def _defensive_lines(def_events: pd.DataFrame):
+    """
+    (defender_line_x, midfield_line_x) in pitch units, in the team's own frame,
+    or None when either line has too few actions to place.
+
+    Each line is where that group of players actually makes its defensive
+    actions: the mean x of the defensive events taken by defenders, and by
+    midfielders. The gap between lines is the distance between the two.
+    (Not a spread of event positions: the P60-P15 spread of all defensive
+    events used previously gave 26-48m for every team, which is not a gap
+    between two lines of players.)
+    """
+    if def_events.empty or "position" not in def_events.columns:
+        return None
+    names = def_events["position"].apply(lambda p: p.get("name") if isinstance(p, dict) else p)
+    back = def_events[names.isin(DEFENDER_POSITIONS)]
+    mid  = def_events[names.isin(MIDFIELDER_POSITIONS)]
+    if len(back) < MIN_LINE_EVENTS or len(mid) < MIN_LINE_EVENTS:
+        return None
+    return float(back["loc_x"].mean()), float(mid["loc_x"].mean())
+
 def _is_danger_corridor(x2: float, y2: float) -> bool:
     return (
         DANGER_CORRIDOR["x_min"] <= x2 <= DANGER_CORRIDOR["x_max"] and
@@ -295,9 +330,9 @@ def _auto_story_false_high_line(df: pd.DataFrame, teams: list) -> dict:
         if def_ev.empty:
             continue
 
-        outfield = _exclude_goalkeeper(def_ev)
-        def_line_x = float(outfield["loc_x"].quantile(0.15))                      if not outfield.empty else float(def_ev["loc_x"].quantile(0.15))
+        lines      = _defensive_lines(def_ev)
         avg_x      = float(def_ev["loc_x"].mean())
+        def_line_x = lines[0] if lines else avg_x
         ppda       = compute_ppda(df, team)
 
         v_state    = _classify_vertical(avg_x)
@@ -1099,13 +1134,10 @@ def _exploit_finder_for_team(df: pd.DataFrame, team: str) -> dict:
     if def_events.empty:
         return {}
 
-    outfield_def_events = _exclude_goalkeeper(def_events)
-    def_line_x = float(
-        outfield_def_events["loc_x"].quantile(0.15)
-        if not outfield_def_events.empty
-        else def_events["loc_x"].quantile(0.15)
-    )
-    mid_line_x  = float(def_events["loc_x"].quantile(0.60))
+    lines = _defensive_lines(def_events)
+    if lines is None:
+        return {}
+    def_line_x, mid_line_x = lines
     avg_x       = float(def_events["loc_x"].mean())
     avg_y_off   = float((def_events["loc_y"] - 40.0).abs().mean())
     gap_units   = mid_line_x - def_line_x
@@ -1160,8 +1192,8 @@ def _exploit_finder_for_team(df: pd.DataFrame, team: str) -> dict:
         "ppda": ppda, "press_class": press_class,
         "false_hl": false_hl, "risk_label": risk_label,
         "risk_color": risk_color, "risk_desc": risk_desc,
+        "h_offset_u": round(avg_y_off, 2),
         "n_events": len(def_events),
-        "n_outfield_events": len(outfield_def_events),
     }
 
 def _render_exploit_pitch(teams_data: list) -> str:
@@ -1220,8 +1252,8 @@ def _render_exploit_pitch(teams_data: list) -> str:
                 color=gap_label_color, fontsize=7.5, ha="center", va="center", fontweight="bold", alpha=0.90)
 
     handles = [
-        mpatches.Patch(facecolor="#3b82f6", alpha=0.8, label="Defensive Line (P15)"),
-        mpatches.Patch(facecolor="#14b8a6", alpha=0.8, label="Midfield Line (P60)"),
+        mpatches.Patch(facecolor="#3b82f6", alpha=0.8, label="Defender line"),
+        mpatches.Patch(facecolor="#14b8a6", alpha=0.8, label="Midfield line"),
         mpatches.Patch(facecolor="#f59e0b", alpha=0.6, label="Gapped — space between lines"),
         mpatches.Patch(facecolor="#22c55e", alpha=0.6, label="Compact — tight structure"),
         mpatches.Patch(facecolor="#ef4444", alpha=0.6, label="False High Line Indicator"),
@@ -1245,8 +1277,8 @@ def _exploit_finder(df: pd.DataFrame, request: AnalysisRequest) -> dict:
             continue
         receipt_lines += [
             f"\n{td['team'].upper()}",
-            f"  Defensive line (P15, outfield only) : {td['def_line_m']}m",
-            f"  Midfield line  (P60)                : {td['mid_line_m']}m",
+            f"  Defender line (mean x of their actions) : {td['def_line_m']}m",
+            f"  Midfield line (mean x of their actions) : {td['mid_line_m']}m",
             f"  The Space Between                   : {td['gap_m']}m  ({td['comp_class']})",
             f"  Avg line height                     : {td['avg_line_m']}m",
             f"  Vertical state                      : {td['v_state']}",
@@ -1255,12 +1287,11 @@ def _exploit_finder(df: pd.DataFrame, request: AnalysisRequest) -> dict:
             f"  False High Line                     : {'YES ⚠' if td['false_hl'] else 'No'}",
             f"  Structural risk                     : {td['risk_label']}",
             f"  Defensive events (n)                : {td['n_events']}",
-            f"  Outfield events used for P15 (n)    : {td.get('n_outfield_events', '—')}",
         ]
     receipt_lines += [
         "\nMETHODOLOGY", "=" * 60,
-        "Defensive line = P15 of OUTFIELD defensive event X coords (GK excluded)",
-        "Midfield line  = P60 of ALL defensive event X coords",
+        "Defender line = mean X of defensive events taken by defenders (CB, FB, WB)",
+        "Midfield line = mean X of defensive events taken by midfielders",
         "Gap            = (midfield line - defensive line) × 0.875m",
         "Thresholds     : Compact < 12m | Standard 12-18m | Gapped > 18m",
         f"PPDA           : < {PPDA_AGGRESSIVE_MAX:g} Aggressive | < {PPDA_MODERATE_MAX:g} Moderate | >= {PPDA_MODERATE_MAX:g} Passive",

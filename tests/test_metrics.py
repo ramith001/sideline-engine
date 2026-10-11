@@ -21,6 +21,8 @@ from api import (
     PPDA_PRESS_MIN_X,
     classify_ppda,
     compute_ppda,
+    _defensive_lines,
+    _exploit_finder_for_team,
     get_defensive_events,
 )
 
@@ -28,15 +30,16 @@ PRESS, OPP = "Pressers", "Opponents"
 MID = (PPDA_PRESS_MIN_X + PPDA_PASS_MAX_X) / 2   # a safely in-zone x for both
 
 
-def ev(team, type_, x, *, duel_type=None, incomplete=False, period=1):
+def ev(team, type_, x, *, duel_type=None, incomplete=False, period=1, position=None, y=40.0):
     """One synthetic event row with only the columns compute_ppda reads."""
     return {
         "team": team,
         "type": type_,
-        "location": [float(x), 40.0],
+        "location": [float(x), float(y)],
         "duel_type": duel_type,
         "pass_outcome": "Incomplete" if incomplete else None,
         "period": period,
+        "position": position,
     }
 
 
@@ -229,3 +232,66 @@ def test_block_line_mirror_helper():
     assert _block_line_x(15.0) == 105.0
     assert _block_line_x(60.0) == 60.0     # halfway line maps to itself
     assert _block_line_x(0.0) == 120.0
+
+
+# ── Gap between lines (compactness) ───────────────────────────────────────────
+
+def _line_events(n, x, position, type_="Pressure", team=PRESS):
+    return [ev(team, type_, x, position=position) for _ in range(n)]
+
+
+def test_defensive_lines_are_where_each_line_defends():
+    df = frame(
+        *_line_events(10, 30, "Left Center Back"),
+        *_line_events(10, 34, "Right Back"),          # defenders: mean 32
+        *_line_events(10, 46, "Center Defensive Midfield"),
+        *_line_events(10, 50, "Left Center Midfield"),  # midfielders: mean 48
+        *_line_events(10, 95, "Center Forward"),        # forwards belong to neither line
+        *_line_events(10, 2, "Goalkeeper"),
+    )
+    back, mid = _defensive_lines(get_defensive_events(df, PRESS))
+    assert (back, mid) == (32.0, 48.0)
+
+
+def test_defensive_lines_need_enough_actions_from_both_lines():
+    df = frame(*_line_events(10, 30, "Left Center Back"),
+               *_line_events(2, 48, "Center Defensive Midfield"))
+    assert _defensive_lines(get_defensive_events(df, PRESS)) is None
+
+
+def test_gap_between_lines_ignores_events_from_other_players():
+    # Regression: the gap used to be P60 - P15 of ALL defensive event x, i.e. a
+    # spread of event positions. Lines that sit level (gap 0) must read as
+    # Compact no matter how many high-up events other players contribute.
+    df = frame(
+        *opp_passes(10),
+        *_line_events(10, 30, "Left Center Back"),
+        *_line_events(10, 30, "Center Defensive Midfield"),
+        *_line_events(60, 100, "Center Forward"),   # drags the old P60 far upfield
+    )
+    td = _exploit_finder_for_team(df, PRESS)
+    assert td["gap_m"] == 0.0
+    assert td["comp_class"] == "Compact"
+
+
+def test_gap_between_lines_value_and_classification():
+    # defenders defend at x=30, midfielders at x=45: 15 units = 13.1m (Standard)
+    df = frame(
+        *opp_passes(10),
+        *_line_events(10, 30, "Left Center Back"),
+        *_line_events(10, 45, "Center Defensive Midfield"),
+    )
+    td = _exploit_finder_for_team(df, PRESS)
+    assert td["gap_m"] == pytest.approx(13.1, abs=0.05)
+    assert td["comp_class"] == "Standard"
+    wide = frame(
+        *opp_passes(10),
+        *_line_events(10, 20, "Left Center Back"),
+        *_line_events(10, 50, "Center Defensive Midfield"),   # 30 units = 26.2m
+    )
+    assert _exploit_finder_for_team(wide, PRESS)["comp_class"] == "Gapped"
+
+
+def test_exploit_finder_returns_nothing_without_a_midfield_line():
+    df = frame(*opp_passes(5), *_line_events(10, 30, "Left Center Back"))
+    assert _exploit_finder_for_team(df, PRESS) == {}
