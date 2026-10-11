@@ -18,6 +18,7 @@ from api import (
     PPDA_PRESS_MIN_X,
     classify_ppda,
     compute_ppda,
+    get_defensive_events,
 )
 
 PRESS, OPP = "Pressers", "Opponents"
@@ -164,3 +165,28 @@ def test_classify_ppda_boundaries(value, label):
 def test_thresholds_are_ordered():
     assert 0 < PPDA_AGGRESSIVE_MAX < PPDA_MODERATE_MAX
     assert PPDA_PRESS_MIN_X < PPDA_PASS_MAX_X   # the zones overlap, by design
+
+
+# ── Defensive events (defensive-line height) ──────────────────────────────────
+
+def test_tackle_duels_are_defensive_events():
+    # StatsBomb has no "Tackle" event type; a tackle is a Duel row with
+    # duel_type == "Tackle". It must feed the defensive-line calculation.
+    df = frame(
+        ev(PRESS, "Duel", 30, duel_type="Tackle"),
+        ev(PRESS, "Duel", 50, duel_type="Tackle"),
+        ev(PRESS, "Pass", 90),
+        ev(OPP, "Duel", 70, duel_type="Tackle"),
+    )
+    out = get_defensive_events(df, PRESS)
+    assert out["loc_x"].tolist() == [30.0, 50.0]   # own tackles only, no passes
+
+
+def test_defensive_events_exclude_shootout_and_other_types():
+    df = frame(
+        ev(PRESS, "Interception", 40),
+        ev(PRESS, "Duel", 20, duel_type="Tackle", period=5),   # shootout
+        ev(PRESS, "Carry", 60),
+        ev(PRESS, "Shot", 100),
+    )
+    assert get_defensive_events(df, PRESS)["loc_x"].tolist() == [40.0]

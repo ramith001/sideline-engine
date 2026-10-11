@@ -121,7 +121,11 @@ def classify_ppda(ppda: float) -> str:
     return "Passive / Low Press"
 
 def get_defensive_events(df: pd.DataFrame, team: str) -> pd.DataFrame:
-    DEF_TYPES = ["Pressure", "Interception", "Block", "Duel", "Clearance", "Tackle"]
+    # StatsBomb has no "Tackle" event type: tackles are Duel events with
+    # duel_type == "Tackle", so "Duel" below already covers them (along with
+    # lost aerial duels). Every Duel is kept on purpose: narrowing to tackles
+    # only would drop the aerials and shift defensive-line heights.
+    DEF_TYPES = ["Pressure", "Interception", "Block", "Duel", "Clearance"]
     events = df[
         (df["team"] == team) & (df["type"].isin(DEF_TYPES)) & (df["period"] != 5)
     ].copy()
