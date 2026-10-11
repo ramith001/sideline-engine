@@ -1743,6 +1743,15 @@ def _progress_trap_for_team(df: pd.DataFrame, team: str, opponent: str) -> dict:
     }
 
 
+def _block_line_x(block_x_u: float) -> float:
+    """
+    block_x_u is the opponent's defensive-line x in the opponent's own frame
+    (their goal at x=0). The pitch is drawn in the attacking team's frame,
+    where that same goal is at x=120, so the line must be mirrored.
+    """
+    return 120.0 - block_x_u
+
+
 def _render_progress_trap_pitch(teams_data: list) -> str:
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
     fig.patch.set_facecolor("#111827")
@@ -1774,9 +1783,9 @@ def _render_progress_trap_pitch(teams_data: list) -> str:
                     ax.scatter(z["x"], z["y"], marker="x", s=35, color=color,
                                alpha=0.65, linewidths=1.4, zorder=3)
 
-        block_x = td["block_x_u"]
+        block_x = _block_line_x(td["block_x_u"])
         ax.axvline(x=block_x, color="#fbbf24", linewidth=1.8, linestyle="--", alpha=0.70, zorder=4)
-        ax.text(block_x+0.8, 74, f"block {td['block_depth_m']}m",
+        ax.text(block_x-0.8, 74, f"block {td['block_depth_m']}m", ha="right",
                 color="#fbbf24", fontsize=6.5, alpha=0.85, fontweight="bold")
 
         ax.set_title(f"{td['team']}  —  {td['stall_rate']}% stall rate  ({td['stalled_count']}/{td['total_attempts']} attempts)",

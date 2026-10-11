@@ -8,6 +8,9 @@ and the opponent's passes count at x <= PPDA_PASS_MAX_X.
 """
 import math
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.axes
 import pandas as pd
 import pytest
 
@@ -190,3 +193,39 @@ def test_defensive_events_exclude_shootout_and_other_types():
         ev(PRESS, "Shot", 100),
     )
     assert get_defensive_events(df, PRESS)["loc_x"].tolist() == [40.0]
+
+
+# ── Progress Trap block line (coordinate frame) ───────────────────────────────
+
+def _progress_trap_td(team, block_x_u):
+    return {
+        "team": team, "total_attempts": 10, "stalled_count": 4, "stall_rate": 40,
+        "stall_x": [20.0, 60.0, 100.0], "stall_y": [30.0, 40.0, 50.0],
+        "block_x_u": block_x_u, "block_depth_m": round(block_x_u * 0.875, 1),
+    }
+
+
+def test_progress_trap_block_line_is_mirrored_into_attackers_frame(monkeypatch):
+    # block_x_u is the opponent's line in the opponent's own frame (their goal
+    # at x=0). The pitch is the attacker's frame (that goal is at x=120), so a
+    # deep block at x=15 must be drawn at x=105, next to the goal being
+    # attacked, not at x=15 inside the attacker's own half.
+    from api import _render_progress_trap_pitch
+
+    drawn = []
+    real = matplotlib.axes.Axes.axvline
+
+    def spy(self, x=0, *a, **kw):
+        drawn.append(x)
+        return real(self, x, *a, **kw)
+
+    monkeypatch.setattr(matplotlib.axes.Axes, "axvline", spy)
+    _render_progress_trap_pitch([_progress_trap_td("A", 15.0), _progress_trap_td("B", 40.0)])
+    assert drawn == [105.0, 80.0]
+
+
+def test_block_line_mirror_helper():
+    from api import _block_line_x
+    assert _block_line_x(15.0) == 105.0
+    assert _block_line_x(60.0) == 60.0     # halfway line maps to itself
+    assert _block_line_x(0.0) == 120.0
