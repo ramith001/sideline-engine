@@ -34,7 +34,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-import api
+from sideline import metrics, story, templates
 
 PCTS = [0, 5, 25, 50, 75, 95, 100]
 
@@ -83,7 +83,7 @@ def bucket(text, teams):
 
 
 def team_rows(df, comp, stage, mid):
-    teams = api.get_teams(df)[:2]
+    teams = metrics.get_teams(df)[:2]
     rows = []
     for team in teams:
         opp = next((t for t in teams if t != team), None)
@@ -91,12 +91,12 @@ def team_rows(df, comp, stage, mid):
             continue
         r = dict(match=mid, comp=comp, stage=stage, team=team)
 
-        ppda = api.compute_ppda(df, team)
-        r["ppda"], r["press_class"] = ppda, api.classify_ppda(ppda)
+        ppda = metrics.compute_ppda(df, team)
+        r["ppda"], r["press_class"] = ppda, metrics.classify_ppda(ppda)
 
-        ex = api._exploit_finder_for_team(df, team)
+        ex = metrics._exploit_finder_for_team(df, team)
         if ex:
-            de = api.get_defensive_events(df, team)
+            de = metrics.get_defensive_events(df, team)
             r["avg_x_m"] = ex["avg_line_m"]
             r["vertical"] = ex["v_state"]
             r["h_offset_u"] = ex.get("h_offset_u", float((de["loc_y"] - 40.0).abs().mean()))
@@ -105,7 +105,7 @@ def team_rows(df, comp, stage, mid):
             r["compactness"] = ex["comp_class"]
             r["exploit_label"] = ex["risk_label"]
 
-        pt = api._progress_trap_for_team(df, team, opp)
+        pt = metrics._progress_trap_for_team(df, team, opp)
         if pt.get("total_attempts"):
             r["block_depth_m"] = pt["block_depth_m"]
             r["block_label"] = pt["block_label"]
@@ -119,7 +119,7 @@ def team_rows(df, comp, stage, mid):
                 "progressed efficiently" if "progressed efficiently" in v else
                 "generic stall/zone summary")
 
-        dm = api._danger_map_for_team(df, team)
+        dm = metrics._danger_map_for_team(df, team)
         if dm.get("total_prog"):
             r["danger_pct"] = dm["danger_pct"]
             r["efficiency"] = dm["efficiency_class"]
@@ -128,28 +128,28 @@ def team_rows(df, comp, stage, mid):
 
 
 def match_row(df, comp, stage, mid):
-    teams = api.get_teams(df)
+    teams = metrics.get_teams(df)
     r = dict(match=mid, comp=comp, stage=stage)
     det = {
-        "momentum_shift": api._auto_story_momentum_shift(df, teams),
-        "false_high_line": api._auto_story_false_high_line(df, teams),
-        "press_bypass": api._auto_story_press_bypass(df, teams),
-        "shape_collapse": api._auto_story_shape_collapse(df, teams),
-        "clinical_surge": api._auto_story_clinical_surge(df, teams),
+        "momentum_shift": story._auto_story_momentum_shift(df, teams),
+        "false_high_line": story._auto_story_false_high_line(df, teams),
+        "press_bypass": story._auto_story_press_bypass(df, teams),
+        "shape_collapse": story._auto_story_shape_collapse(df, teams),
+        "clinical_surge": story._auto_story_clinical_surge(df, teams),
     }
     for k, v in det.items():
         r[f"drama_{k}"] = v.get("drama_score") if v else np.nan
-    r["outcome_floor"] = api._get_match_outcome_floor(df)
-    story = api.generate_auto_story(df, teams)
-    r["story_type"] = story["story_type"] if story else "none"
-    r["story_drama"] = story["drama_score"] if story else np.nan
+    r["outcome_floor"] = story._get_match_outcome_floor(df)
+    chosen = story.generate_auto_story(df, teams)
+    r["story_type"] = chosen["story_type"] if chosen else "none"
+    r["story_drama"] = chosen["drama_score"] if chosen else np.nan
 
     for tpl, fn in [
-        ("verdict_game_flow", api._game_flow),
-        ("verdict_press_autopsy", api._press_autopsy),
-        ("verdict_exploit", api._exploit_finder),
-        ("verdict_danger_map", api._danger_map),
-        ("verdict_progress_trap", api._progress_trap),
+        ("verdict_game_flow", templates._game_flow),
+        ("verdict_press_autopsy", templates._press_autopsy),
+        ("verdict_exploit", templates._exploit_finder),
+        ("verdict_danger_map", templates._danger_map),
+        ("verdict_progress_trap", templates._progress_trap),
     ]:
         out = fn(df.copy(), Req(mid, tpl))
         r[tpl] = bucket(out["metrics"].get("verdict_label", ""), teams)

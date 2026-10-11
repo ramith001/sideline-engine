@@ -18,9 +18,20 @@ FastAPI (Python) backend with pandas, numpy, scipy, statsbombpy, and mplsoccer. 
 
 ## Files
 
-`api.py` is the live FastAPI backend serving the `/analyze` endpoint. `app/` and `components/` are the Next.js frontend.
+**Backend.** `api.py` is the thin FastAPI app: the `/analyze` and `/health` endpoints and CORS setup. The analysis engine is the `sideline/` package:
 
-`app.py`, `sideline_ai_v01.py`, `visuals.py`, `visuals_v2.py`, and `match_index.py` are from an earlier Streamlit-based prototype of the same engine. They're kept in the repo as project history but aren't used by the current live stack, which was rewritten as a FastAPI backend with a Next.js frontend.
+- `sideline/metrics.py`: shared constants, thresholds and the per-team metrics (PPDA, defensive lines, compactness, progressive passes, block depth).
+- `sideline/verdicts.py`: the two-team verdict text for the Exploit Finder, Danger Map and Progress Trap.
+- `sideline/story.py`: the Auto-Story engine, which picks and narrates the highest-drama moment of a match using the half-time score as context.
+- `sideline/visuals.py`: pitch rendering.
+- `sideline/templates.py`: the five analysis templates, which tie the pieces above together.
+- `sideline/models.py`: the request model.
+
+**Frontend.** `app/` and `components/` are the Next.js frontend.
+
+**Tooling.** `tests/` is the pytest suite (run by CI on every push). `scripts/` holds the label audit (`audit_labels.py`), the PPDA calibration (`calibrate_ppda.py`) and the generator for the landing-page sample report (`make_sample_report.py`).
+
+**Prototype.** `prototype/` holds `app.py`, `sideline_ai_v01.py`, `visuals.py`, `visuals_v2.py` and `match_index.py`, from an earlier Streamlit-based prototype of the same engine. They're kept as project history but aren't used by the current live stack, which was rewritten as a FastAPI backend with a Next.js frontend.
 
 ## Validation
 

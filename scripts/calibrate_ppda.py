@@ -14,10 +14,10 @@ What it does, over every team-match in the frontend match index:
    percentile of the corrected metric. That is how 2.5 / 3.5 / 4.4 became
    9 / 14 / 20 in api.py.
 
-2. CURRENT SPLIT. The label shares api.classify_ppda gives today, overall and
+2. CURRENT SPLIT. The label shares metrics.classify_ppda gives today, overall and
    per tournament.
 
-3. VALIDATION. Spearman rank correlation between api.compute_ppda and a
+3. VALIDATION. Spearman rank correlation between metrics.compute_ppda and a
    separately written standard-definition PPDA (Opta style: opponent passes in
    their own 60% of the pitch over tackles, interceptions, fouls and
    challenges in the opposition's 60%).
@@ -42,7 +42,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import numpy as np
 import pandas as pd
 
-import api
+from sideline import metrics
 from audit_labels import load_events, match_index
 
 OLD_THRESHOLDS = {"aggressive_max": 2.5, "pressed_gate": 3.5, "moderate_max": 4.4}
@@ -67,7 +67,7 @@ def legacy_ppda(df, team):
 
 
 def standard_ppda(df, team):
-    """Opta-style PPDA, written independently of api.compute_ppda: all opponent
+    """Opta-style PPDA, written independently of metrics.compute_ppda: all opponent
     passes in their own 60% of the pitch, over the pressing team's tackles,
     interceptions, fouls and challenges (StatsBomb 'Dribbled Past') in the
     opposition's 60%. Each team's events are in that team's own frame."""
@@ -93,10 +93,10 @@ def main():
     rows = []
     for comp, stage, mid in match_index():
         df = load_events(mid, a.cache)
-        for team in api.get_teams(df)[:2]:
-            ppda = api.compute_ppda(df, team)
+        for team in metrics.get_teams(df)[:2]:
+            ppda = metrics.compute_ppda(df, team)
             rows.append(dict(match=mid, comp=comp, team=team, ppda=ppda,
-                             label=api.classify_ppda(ppda),
+                             label=metrics.classify_ppda(ppda),
                              legacy=legacy_ppda(df, team), standard=standard_ppda(df, team)))
     R = pd.DataFrame(rows)
     R = R.replace([np.inf, -np.inf], np.nan)
@@ -111,8 +111,8 @@ def main():
     for name, thr in OLD_THRESHOLDS.items():
         pct = 100 * (legacy < thr).mean()
         print(f"  old {name:<15}{thr:>4}: percentile {pct:5.1f} -> corrected value {np.percentile(new, pct):5.1f}")
-    print(f"current api.py constants: aggressive < {api.PPDA_AGGRESSIVE_MAX:g}, "
-          f"moderate < {api.PPDA_MODERATE_MAX:g}, pressed-hard gate <= {api.PPDA_PRESSED_MAX:g}")
+    print(f"current api.py constants: aggressive < {metrics.PPDA_AGGRESSIVE_MAX:g}, "
+          f"moderate < {metrics.PPDA_MODERATE_MAX:g}, pressed-hard gate <= {metrics.PPDA_PRESSED_MAX:g}")
 
     print("\n== 2. CURRENT LABEL SPLIT ==")
     share = (100 * R["label"].value_counts(normalize=True)).round(0).astype(int)
@@ -123,7 +123,7 @@ def main():
     print("\n== 3. VALIDATION vs an independent standard-definition PPDA ==")
     both = R[["ppda", "standard"]].dropna()
     rho = both["ppda"].corr(both["standard"], method="spearman")
-    print(f"Spearman rank correlation, api.compute_ppda vs standard definition: {rho:.2f} (n={len(both)})")
+    print(f"Spearman rank correlation, metrics.compute_ppda vs standard definition: {rho:.2f} (n={len(both)})")
     print(f"standard-definition PPDA p5/25/50/75/95 = {np.round(np.percentile(both['standard'], [5, 25, 50, 75, 95]), 1)}")
 
 

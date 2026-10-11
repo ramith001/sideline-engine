@@ -14,25 +14,27 @@ import matplotlib.axes
 import pandas as pd
 import pytest
 
-from api import (
+from sideline.metrics import (
+    FORCED_WIDE_MIN,
+    HORIZONTAL_NARROW_MAX,
+    HORIZONTAL_STRETCHED_MIN,
     PPDA_AGGRESSIVE_MAX,
     PPDA_MODERATE_MAX,
     PPDA_PASS_MAX_X,
     PPDA_PRESS_MIN_X,
-    classify_ppda,
-    compute_ppda,
-    FORCED_WIDE_MIN,
-    HORIZONTAL_NARROW_MAX,
-    HORIZONTAL_STRETCHED_MIN,
-    _auto_story_press_bypass,
-    _auto_story_shape_collapse,
-    _build_story_content,
     _classify_horizontal,
     _defensive_lines,
     _exploit_finder_for_team,
-    _halftime_state,
     _progress_trap_for_team,
+    classify_ppda,
+    compute_ppda,
     get_defensive_events,
+)
+from sideline.story import (
+    _auto_story_press_bypass,
+    _auto_story_shape_collapse,
+    _build_story_content,
+    _halftime_state,
 )
 
 PRESS, OPP = "Pressers", "Opponents"
@@ -225,8 +227,7 @@ def test_progress_trap_block_line_is_mirrored_into_attackers_frame(monkeypatch):
     # at x=0). The pitch is the attacker's frame (that goal is at x=120), so a
     # deep block at x=15 must be drawn at x=105, next to the goal being
     # attacked, not at x=15 inside the attacker's own half.
-    from api import _render_progress_trap_pitch
-
+    from sideline.visuals import _render_progress_trap_pitch
     drawn = []
     real = matplotlib.axes.Axes.axvline
 
@@ -240,7 +241,7 @@ def test_progress_trap_block_line_is_mirrored_into_attackers_frame(monkeypatch):
 
 
 def test_block_line_mirror_helper():
-    from api import _block_line_x
+    from sideline.visuals import _block_line_x
     assert _block_line_x(15.0) == 105.0
     assert _block_line_x(60.0) == 60.0     # halfway line maps to itself
     assert _block_line_x(0.0) == 120.0
