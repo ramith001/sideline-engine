@@ -80,7 +80,7 @@ export default function Sidebar({ sharedState, setSharedState }: SidebarProps) {
       <div className="mt-auto p-6 border-t border-gray-800">
         <div className="bg-gradient-to-br from-purple-900/20 to-blue-900/20 p-4 rounded-xl border border-purple-500/30">
           <p className="text-[10px] text-purple-400 font-bold uppercase mb-1">Status</p>
-          <p className="text-xs text-gray-300 leading-tight">Engine V0.1 Connected</p>
+          <p className="text-xs text-gray-300 leading-tight">Engine V0.1.0 Connected</p>
         </div>
       </div>
     </div>

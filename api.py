@@ -1,5 +1,5 @@
 """
-api.py  —  Sideline.ai FastAPI Backend  v0.4
+api.py  —  Sideline.ai FastAPI Backend  v0.1.0
 Endpoints:
     GET  /health
     POST /analyze   (routes by `template` field)
@@ -22,7 +22,9 @@ from statsbombpy import sb
 import pandas as pd
 import numpy as np
 
-app = FastAPI()
+API_VERSION = "0.1.0"
+
+app = FastAPI(version=API_VERSION)
 
 DEFAULT_CORS_ORIGINS = ["http://localhost:3000", "https://sideline-engine.vercel.app"]
 CORS_ORIGINS = [
@@ -164,7 +166,7 @@ def _classify_compactness(gap_m: float) -> str:
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "version": "5.0.0"}
+    return {"status": "ok", "version": API_VERSION}
 
 # ── Main route ────────────────────────────────────────────────────────────────
 
@@ -561,40 +563,6 @@ def _build_story_content(story: dict, teams: list) -> dict:
         "key_stat":             key_stat,
         "key_stat_label":       key_label,
     }
-
-
-def _get_match_outcome_floor(df: pd.DataFrame) -> float:
-    went_to_pens = 5 in df["period"].values
-    went_to_et   = any(p in df["period"].values for p in [3, 4])
-
-    goals = df[
-        (df["type"] == "Shot") &
-        (df["shot_outcome"].apply(
-            lambda x: (x.get("name") == "Goal") if isinstance(x, dict) else (x == "Goal")
-        )) &
-        (~df["period"].isin([5]))
-    ]
-    total_goals = len(goals)
-
-    teams = df["team"].dropna().unique().tolist()
-    goals_per_team = [len(goals[goals["team"] == t]) for t in teams[:2]]
-    goal_diff = abs(goals_per_team[0] - goals_per_team[1]) if len(goals_per_team) == 2 else 99
-
-    if went_to_pens and total_goals >= 4 and goal_diff <= 1:
-        return 10.0
-    if went_to_pens and total_goals >= 3:
-        return 9.2
-    if went_to_pens:
-        return 8.5
-    if went_to_et and total_goals >= 4:
-        return 8.0
-    if went_to_et:
-        return 7.5
-    if total_goals >= 5 and goal_diff <= 1:
-        return 7.5
-    if total_goals >= 4:
-        return 6.5
-    return 0.0
 
 
 def _get_match_outcome_floor(df: pd.DataFrame) -> float:
@@ -1369,126 +1337,6 @@ def _get_progressive_passes(df: pd.DataFrame, team: str) -> pd.DataFrame:
 
     return passes[passes["is_progressive"]].copy()
 
-
-
-def _danger_map_verdict(teams_data: list) -> str:
-    """Dynamic two-team verdict for Danger Map."""
-    valid = [td for td in teams_data if td and td.get("total_prog", 0) > 0]
-    if not valid:
-        return "Insufficient data."
-    if len(valid) == 1:
-        return valid[0].get("verdict", "")
-
-    t0, t1   = valid[0], valid[1]
-    n0, n1   = t0["team"], t1["team"]
-    pct0, pct1 = t0["danger_pct"], t1["danger_pct"]
-    tot0, tot1 = t0["total_prog"], t1["total_prog"]
-    dc0, dc1   = t0["danger_count"], t1["danger_count"]
-    gain0, gain1 = t0["avg_gain_m"], t1["avg_gain_m"]
-    gap = abs(pct0 - pct1)
-    more_clinical = n0 if pct0 >= pct1 else n1
-    less_clinical = n1 if more_clinical == n0 else n0
-    more_pct = max(pct0, pct1)
-    less_pct = min(pct0, pct1)
-    more_dc  = dc0 if more_clinical == n0 else dc1
-    less_dc  = dc1 if more_clinical == n0 else dc0
-    more_tot = tot0 if more_clinical == n0 else tot1
-    less_tot = tot1 if more_clinical == n0 else tot0
-
-    if gap >= 15:
-        return (
-            f"{more_clinical} were significantly more clinical — {more_pct}% of progressive passes "
-            f"reached the danger corridor ({more_dc}/{more_tot}), compared to just {less_pct}% for "
-            f"{less_clinical} ({less_dc}/{less_tot}). {less_clinical} moved the ball forward but "
-            f"their progression repeatedly broke down before reaching a genuine threat position. "
-            f"The {gap}% efficiency gap was the clearest tactical difference in this match."
-        )
-    elif gap >= 7:
-        vol_leader = n0 if tot0 >= tot1 else n1
-        vol_lagger = n1 if vol_leader == n0 else n0
-        vol_more   = max(tot0, tot1)
-        vol_less   = min(tot0, tot1)
-        return (
-            f"{more_clinical} edged clinical efficiency ({more_pct}% vs {less_pct}%). "
-            f"{vol_leader} dominated in volume with {vol_more} progressive passes vs "
-            f"{vol_less} for {vol_lagger}. "
-            f"The combination of volume and efficiency tells the full story of who controlled progression."
-        )
-    elif abs(tot0 - tot1) >= 20:
-        vol_leader = n0 if tot0 >= tot1 else n1
-        vol_lagger = n1 if vol_leader == n0 else n0
-        return (
-            f"Clinical efficiency was similar — {pct0}% vs {pct1}% — but {vol_leader} "
-            f"generated far more progressive passes ({max(tot0,tot1)} vs {min(tot0,tot1)}). "
-            f"Volume of ball progression, not efficiency, was the key differentiator. "
-            f"Average gain per pass: {gain0}m ({n0}) vs {gain1}m ({n1})."
-        )
-    else:
-        return (
-            f"Both teams were closely matched in danger corridor efficiency — {n0} {pct0}% "
-            f"({dc0}/{tot0}) vs {n1} {pct1}% ({dc1}/{tot1}). "
-            f"Average ground gained per progressive pass: {gain0}m vs {gain1}m. "
-            f"Neither side found a clear edge in turning possession into genuine threat."
-        )
-
-def _danger_map_for_team(df: pd.DataFrame, team: str) -> dict:
-    prog = _get_progressive_passes(df, team)
-    if prog.empty:
-        return {"team": team, "total_prog": 0, "danger_count": 0,
-                "danger_pct": 0, "avg_gain_m": 0.0,
-                "efficiency_class": "No data", "efficiency_color": "#6b7280",
-                "verdict": f"No progressive pass data found for {team}."}
-
-    total_prog   = len(prog)
-    danger_count = int(prog["danger"].sum())
-    danger_pct   = round((danger_count / total_prog) * 100) if total_prog > 0 else 0
-    avg_gain_m   = round(float(prog["delta_d"].mean()) * METERS, 1)
-
-    # Clinical efficiency classification
-    if danger_pct >= 35:
-        eff_class = "High Clinical Efficiency"
-        eff_color = "#22c55e"
-        verdict   = (
-            f"{team} were clinically efficient — {danger_pct}% of progressive passes "
-            f"arrived in the danger corridor ({danger_count}/{total_prog}). "
-            f"Every 3 forward moves created a genuine threat."
-        )
-    elif danger_pct >= 20:
-        eff_class = "Moderate Clinical Efficiency"
-        eff_color = "#f59e0b"
-        verdict   = (
-            f"{team} progressed the ball effectively but conversion to danger was moderate — "
-            f"only {danger_pct}% of {total_prog} progressive passes reached the danger corridor. "
-            f"The opponent's block absorbed most of the volume."
-        )
-    else:
-        eff_class = "Low Clinical Efficiency"
-        eff_color = "#ef4444"
-        verdict   = (
-            f"{team} moved the ball forward ({total_prog} progressive passes, avg {avg_gain_m}m gain) "
-            f"but only {danger_pct}% arrived in a genuine danger zone. "
-            f"Progression was happening — it just wasn't threatening."
-        )
-
-    return {
-        "team":             team,
-        "total_prog":       total_prog,
-        "danger_count":     danger_count,
-        "danger_pct":       danger_pct,
-        "avg_gain_m":       avg_gain_m,
-        "efficiency_class": eff_class,
-        "efficiency_color": eff_color,
-        "verdict":          verdict,
-        # Raw coords for pitch render
-        "all_x1":     prog["x1"].tolist(),
-        "all_y1":     prog["y1"].tolist(),
-        "all_x2":     prog["x2"].tolist(),
-        "all_y2":     prog["y2"].tolist(),
-        "danger_x1":  prog[prog["danger"]]["x1"].tolist(),
-        "danger_y1":  prog[prog["danger"]]["y1"].tolist(),
-        "danger_x2":  prog[prog["danger"]]["x2"].tolist(),
-        "danger_y2":  prog[prog["danger"]]["y2"].tolist(),
-    }
 
 
 def _render_danger_pitch(teams_data: list) -> str:
