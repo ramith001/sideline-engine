@@ -266,10 +266,13 @@ def _goals_scored(df: pd.DataFrame, team: str, periods: list) -> int:
     own goals scored against the other side."""
     in_periods = df["period"].isin(periods) & (df["team"] == team)
     shots = df[in_periods & (df["type"] == "Shot")]
-    scored = shots["shot_outcome"].apply(
-        lambda x: (x.get("name") == "Goal") if isinstance(x, dict) else (x == "Goal")
+    # Plain iteration, not Series.apply(...).sum(): on an empty selection pandas
+    # can infer a string dtype for the result, and its sum() is '' rather than 0.
+    scored = sum(
+        (o.get("name") == "Goal") if isinstance(o, dict) else (o == "Goal")
+        for o in shots["shot_outcome"]
     )
-    return int(scored.sum()) + int((in_periods & (df["type"] == "Own Goal For")).sum())
+    return int(scored) + int((in_periods & (df["type"] == "Own Goal For")).sum())
 
 
 def _halftime_state(df: pd.DataFrame, team: str, opponent) -> dict:

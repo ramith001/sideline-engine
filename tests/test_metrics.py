@@ -398,6 +398,14 @@ def test_halftime_state_counts_first_half_goals_and_own_goals_only():
     assert _halftime_state(df, OPP, PRESS)["state"] == "trailing"
 
 
+def test_halftime_state_when_a_team_had_no_shots_in_the_half():
+    # Regression: with the shot_outcome column holding text but this team having
+    # no shots, summing an empty result raised ValueError on newer pandas.
+    df = frame(_goal(OPP, 1), ev(PRESS, "Pass", 50))
+    st = _halftime_state(df, PRESS, OPP)
+    assert (st["ht_for"], st["ht_against"], st["state"]) == (0, 1, "trailing")
+
+
 def test_halftime_state_level():
     assert _halftime_state(frame(ev(PRESS, "Pass", 50), ev(OPP, "Pass", 50)), PRESS, OPP)["state"] == "level"
 
