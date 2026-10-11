@@ -484,10 +484,13 @@ function MatchSelector({ selectedCompetition, selectedStage, selectedMatch, onCo
   onCompetitionChange: (c: string) => void; onStageChange: (s: string) => void; onMatchChange: (m: { label: string; id: number }) => void
 }) {
   const [openDropdown, setOpenDropdown] = useState<"competition" | "stage" | "match" | null>(null)
+  const [matchFilter, setMatchFilter] = useState("")
   const stages = COMPETITIONS[selectedCompetition as keyof typeof COMPETITIONS] ?? []
 
-  const toggle = (d: "competition" | "stage" | "match") =>
+  const toggle = (d: "competition" | "stage" | "match") => {
+    setMatchFilter("")
     setOpenDropdown(prev => prev === d ? null : d)
+  }
 
   const DropdownButton = ({ label, value, which }: { label: string; value: string; which: "competition" | "stage" | "match" }) => (
     <div className="relative">
@@ -505,6 +508,19 @@ function MatchSelector({ selectedCompetition, selectedStage, selectedMatch, onCo
             style={{ backgroundColor: "#161b22", color: "#ff4d4d", borderBottom: "1px solid #21262d" }}>
             {label}
           </div>
+          {which === "match" && (
+            <div className="sticky top-[33px] px-2 py-2" style={{ backgroundColor: "#161b22", borderBottom: "1px solid #21262d" }}>
+              <input
+                type="text"
+                autoFocus
+                value={matchFilter}
+                onChange={e => setMatchFilter(e.target.value)}
+                placeholder="Search matches..."
+                className="w-full rounded-lg border px-2.5 py-1.5 text-xs text-white outline-none placeholder:text-gray-500"
+                style={{ backgroundColor: "#0d1117", borderColor: "#21262d" }}
+              />
+            </div>
+          )}
           {which === "competition" && Object.keys(COMPETITIONS).map(c => (
             <button key={c} onClick={() => { onCompetitionChange(c); setOpenDropdown(null) }}
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-white/5"
@@ -521,7 +537,9 @@ function MatchSelector({ selectedCompetition, selectedStage, selectedMatch, onCo
               {s.split(" · ")[1]}
             </button>
           ))}
-          {which === "match" && (MATCH_INDEX[selectedStage] ?? []).map(m => (
+          {which === "match" && (MATCH_INDEX[selectedStage] ?? [])
+            .filter(m => m.label.toLowerCase().includes(matchFilter.trim().toLowerCase()))
+            .map(m => (
             <button key={m.id} onClick={() => { onMatchChange(m); setOpenDropdown(null) }}
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-white/5"
               style={{ color: m.id === selectedMatch.id ? "#ff4d4d" : "#e5e7eb" }}>
@@ -536,9 +554,9 @@ function MatchSelector({ selectedCompetition, selectedStage, selectedMatch, onCo
 
   return (
     <div className="flex items-center gap-2">
-      <DropdownButton label="Competition" value={selectedCompetition} which="competition" />
-      <DropdownButton label="Stage" value={selectedStage.split(" · ")[1]} which="stage" />
-      <DropdownButton label="Match" value={selectedMatch.label} which="match" />
+      {DropdownButton({ label: "Competition", value: selectedCompetition, which: "competition" })}
+      {DropdownButton({ label: "Stage", value: selectedStage.split(" · ")[1], which: "stage" })}
+      {DropdownButton({ label: "Match", value: selectedMatch.label, which: "match" })}
     </div>
   )
 }
