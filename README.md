@@ -6,7 +6,7 @@ A rule-based football analysis tool. Converts raw coordinate-level match event d
 
 ## What it does
 
-Five specialised analysis templates with dynamic two-team verdicts. An Auto-Story engine that scores and narrates the highest-drama tactical moment of a match automatically. Covers 147 matches across FIFA World Cup 2022, UEFA Euro 2024, and Copa America 2024.
+Five specialised analysis templates with dynamic two-team verdicts. An Auto-Story engine that scores and narrates the highest-drama tactical moment of a match automatically. Covers 146 matches across FIFA World Cup 2022, UEFA Euro 2024, and Copa America 2024.
 
 ## Live Demo
 
