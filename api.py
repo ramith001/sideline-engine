@@ -1739,9 +1739,13 @@ def _progress_trap_for_team(df: pd.DataFrame, team: str, opponent: str) -> dict:
 
     forced_wide_pct = round((int(completed["is_wide"].sum()) / len(completed)) * 100) if not completed.empty else 0
 
+    # Block height = where the opponent defends on average: the same mean x of
+    # defensive events the Exploit Finder reports as avg_line_m, so one team has
+    # one number across templates. (This was the 15th percentile of those
+    # events, i.e. by construction the deepest ones: 37% clearances although
+    # clearances are 10% of defensive events, and ~12m for every team.)
     opp_def      = get_defensive_events(df, opponent)
-    opp_outfield = _exclude_goalkeeper(opp_def) if not opp_def.empty else opp_def
-    block_x_u    = float(opp_outfield["loc_x"].quantile(0.15)) if not opp_outfield.empty else 52.0
+    block_x_u    = float(opp_def["loc_x"].mean()) if not opp_def.empty else 52.0
     block_depth_m = round(block_x_u * METERS, 1)
 
     if block_x_u < 35:
@@ -1878,7 +1882,7 @@ def _progress_trap(df: pd.DataFrame, request: AnalysisRequest) -> dict:
         "Forward pass: x2 > x1 + 5u",
         "Stall: incomplete forward pass",
         "Wide: |y1 - 40| > 20u",
-        "Block depth: P15 of opponent outfield defensive events (GK excluded)",
+        "Block depth: mean X of the opponent's defensive events (own frame, goal at 0)",
     ]
 
     def _strip(td):

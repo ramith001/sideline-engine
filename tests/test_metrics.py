@@ -26,6 +26,7 @@ from api import (
     _classify_horizontal,
     _defensive_lines,
     _exploit_finder_for_team,
+    _progress_trap_for_team,
     get_defensive_events,
 )
 
@@ -33,7 +34,7 @@ PRESS, OPP = "Pressers", "Opponents"
 MID = (PPDA_PRESS_MIN_X + PPDA_PASS_MAX_X) / 2   # a safely in-zone x for both
 
 
-def ev(team, type_, x, *, duel_type=None, incomplete=False, period=1, position=None, y=40.0):
+def ev(team, type_, x, *, duel_type=None, incomplete=False, period=1, position=None, y=40.0, end=None):
     """One synthetic event row with only the columns compute_ppda reads."""
     return {
         "team": team,
@@ -43,6 +44,7 @@ def ev(team, type_, x, *, duel_type=None, incomplete=False, period=1, position=N
         "pass_outcome": "Incomplete" if incomplete else None,
         "period": period,
         "position": position,
+        "pass_end_location": None if end is None else [float(end), float(y)],
     }
 
 
@@ -319,3 +321,29 @@ def test_classify_horizontal_boundaries(value, label):
 def test_horizontal_thresholds_sit_inside_the_realistic_range():
     # Regression: 15 / 27 sat outside the real 13-24 range, so 99% were Balanced.
     assert 17.0 < HORIZONTAL_NARROW_MAX < 20.0 < HORIZONTAL_STRETCHED_MIN < 23.0
+
+
+# ── Progress Trap block depth ─────────────────────────────────────────────────
+
+def _trap_frame(opp_clearance_x, opp_pressure_x, n_clear=5, n_press=20):
+    attacker = [ev(PRESS, "Pass", 50, end=70) for _ in range(6)]   # forward passes to analyse
+    defending = (
+        [ev(OPP, "Clearance", opp_clearance_x) for _ in range(n_clear)]
+        + [ev(OPP, "Pressure", opp_pressure_x) for _ in range(n_press)]
+    )
+    return frame(*attacker, *defending)
+
+
+def test_block_depth_is_where_the_opponent_defends_not_their_deepest_events():
+    # 5 clearances in the box (x=10) and 20 pressures at x=50: mean x = 42.
+    # Regression: the 15th percentile of these events is ~10 (the clearances),
+    # which made every team an "Extreme Low Block".
+    td = _progress_trap_for_team(_trap_frame(10, 50), PRESS, OPP)
+    assert td["block_x_u"] == 42.0
+    assert td["block_label"] == "Deep Block"
+
+
+def test_a_high_defending_team_is_not_labelled_a_low_block():
+    td = _progress_trap_for_team(_trap_frame(10, 75), PRESS, OPP)   # mean 62
+    assert td["block_x_u"] == 62.0
+    assert td["block_label"] == "High Block / Pressing"
