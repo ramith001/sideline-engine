@@ -43,7 +43,9 @@ app.add_middleware(
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "version": API_VERSION}
+    # Render sets RENDER_GIT_COMMIT at runtime; "unknown" anywhere else.
+    commit_short = os.environ.get("RENDER_GIT_COMMIT", "unknown")[:7]
+    return {"status": "ok", "version": API_VERSION, "commit": commit_short}
 
 # ── Main route ────────────────────────────────────────────────────────────────
 
